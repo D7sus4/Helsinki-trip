@@ -1,15 +1,45 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Plane, Calendar, CheckSquare, Heart, MapPin, Coffee, ShoppingBag, 
-  Camera, Sun, Trash2, Plus, ChevronRight, Luggage, X, Link as LinkIcon, 
-  ArrowLeft, ExternalLink, Globe, AlertCircle, Edit2, Save, ArrowRightLeft, 
-  Wallet, CreditCard, Banknote, Coins, RefreshCw, Sparkles, Loader2, MessageCircle
+  Plane, Calendar, CheckSquare, Heart, Coffee, ShoppingBag, 
+  Camera, Sun, Trash2, Plus, ChevronRight, Luggage, X, Wallet, 
+  Sparkles, Loader2, ArrowLeft, Save, Edit2, ArrowRightLeft,
+  Link as LinkIcon, ExternalLink, Globe, CreditCard, Banknote, Coins, RefreshCw, AlertCircle
 } from 'lucide-react';
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, User } from 'firebase/auth';
+import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getFirestore, doc, onSnapshot, setDoc } from 'firebase/firestore';
 
-// --- Types ---
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyBodoPRFxwxjkWOXBdJUVO6W1nkP25ZIno",
+  authDomain: "helsinki-trip-9d349.firebaseapp.com",
+  projectId: "helsinki-trip-9d349",
+  storageBucket: "helsinki-trip-9d349.firebasestorage.app",
+  messagingSenderId: "520178181946",
+  appId: "1:520178181946:web:cd631d7df67495dc095203"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+
+// Gemini APIキー (AI機能を使う場合のみ入力。なければ空欄でOK)
+const geminiApiKey = ""; 
+
+// ==========================================
+
+// --- デザイン（Tailwind CSS）読み込み ---
+const TailwindInjector = () => {
+  useEffect(() => {
+    if (!document.querySelector('script[src="https://cdn.tailwindcss.com"]')) {
+      const script = document.createElement('script');
+      script.src = "https://cdn.tailwindcss.com";
+      document.head.appendChild(script);
+    }
+  }, []);
+  return null;
+};
+
+// --- 型定義 ---
 type TabType = 'home' | 'schedule' | 'packing' | 'spots' | 'expenses';
 type SpotCategory = 'sightseeing' | 'shopping' | 'food' | 'cafe' | 'other';
 type ItemCategory = 'essential' | 'clothing' | 'beauty' | 'electronics' | 'other';
@@ -19,155 +49,76 @@ type Payer = 'Misaki' | 'Yutaro';
 type PaymentMethod = 'Credit Card' | 'Cashless' | 'Cash';
 type ExpenseCategory = 'Food' | 'Transport' | 'Shopping' | 'Stay' | 'Ticket' | 'Other';
 
-interface Flight {
-  type: 'outbound' | 'inbound';
-  date: string;
-  depTime: string;
-  arrTime: string;
-  from: string;
-  to: string;
-  flightNo: string;
-  duration?: string;
-}
+interface Flight { type: 'outbound' | 'inbound'; date: string; depTime: string; arrTime: string; from: string; to: string; flightNo: string; duration?: string; }
+interface PackingItem { id: string; text: string; checked: boolean; category: ItemCategory; }
+interface LinkItem { id: string; title: string; url: string; }
+interface Spot { id: string; title: string; category: SpotCategory; description: string; imageColor: string; links: LinkItem[]; }
+interface ScheduleEvent { id: string; time: string; title: string; description: string; location?: string; link?: string; }
+interface ScheduleDay { id: string; date: string; dayOfWeek: string; title: string; iconType: IconType; content: string; events: ScheduleEvent[]; }
+interface Expense { id: string; title: string; amount: number; currency: Currency; payer: Payer; method: PaymentMethod; category: ExpenseCategory; date: string; }
 
-interface PackingItem {
-  id: string;
-  text: string;
-  checked: boolean;
-  category: ItemCategory;
-}
-
-interface LinkItem {
-  id: string;
-  title: string;
-  url: string;
-}
-
-interface Spot {
-  id: string;
-  title: string;
-  category: SpotCategory;
-  description: string;
-  imageColor: string;
-  links: LinkItem[];
-}
-
-interface ScheduleEvent {
-  id: string;
-  time: string;
-  title: string;
-  description: string;
-  location?: string;
-  link?: string;
-}
-
-interface ScheduleDay {
-  id: string;
-  date: string;
-  dayOfWeek: string;
-  title: string;
-  iconType: IconType;
-  content: string;
-  events: ScheduleEvent[];
-}
-
-interface Expense {
-  id: string;
-  title: string;
-  amount: number;
-  currency: Currency;
-  payer: Payer;
-  method: PaymentMethod;
-  category: ExpenseCategory;
-  date: string;
-}
-
-// --- Initial Data ---
+// --- 初期データ ---
 const FLIGHTS: Flight[] = [
-  { type: 'outbound', date: '6/19 (Fri)', depTime: '22:50', arrTime: '05:55', from: 'NGO (Nagoya)', to: 'HEL (Helsinki)', flightNo: 'AY0080', duration: '13h 05m' },
-  { type: 'inbound', date: '6/28 (Sun)', depTime: '00:45', arrTime: '19:35', from: 'HEL (Helsinki)', to: 'NGO (Nagoya)', flightNo: 'AY0079', duration: '12h 50m' }
+  { type: 'outbound', date: '6/19 (Fri)', depTime: '22:50', arrTime: '05:55', from: 'NGO', to: 'HEL', flightNo: 'AY0080', duration: '13h 05m' },
+  { type: 'inbound', date: '6/28 (Sun)', depTime: '00:45', arrTime: '19:35', from: 'HEL', to: 'NGO', flightNo: 'AY0079', duration: '12h 50m' }
 ];
-
-const INITIAL_PACKING_LIST: PackingItem[] = [
-  { id: '1', text: 'パスポート', checked: false, category: 'essential' },
-  { id: '2', text: 'eチケット控え', checked: false, category: 'essential' },
-  { id: '3', text: 'クレジットカード', checked: false, category: 'essential' },
-  { id: '4', text: '変換プラグ (Cタイプ)', checked: false, category: 'electronics' },
-  { id: '5', text: 'モバイルバッテリー', checked: false, category: 'electronics' },
-  { id: '6', text: '保湿クリーム', checked: false, category: 'beauty' },
-  { id: '7', text: '日焼け止め', checked: false, category: 'beauty' },
-  { id: '8', text: '歯ブラシセット', checked: false, category: 'essential' },
-  { id: '9', text: 'ウルトラライトダウン', checked: false, category: 'clothing' },
-  { id: '10', text: '歩きやすいスニーカー', checked: false, category: 'clothing' },
-];
-
-const INITIAL_SPOTS: Spot[] = [
-  { id: '1', title: 'Marimekko本社アウトレット', category: 'shopping', description: '絶対行きたい！社員食堂「Maritori」でランチも。', imageColor: 'bg-red-400', links: [{ id: 'l1', title: '公式サイト', url: 'https://www.marimekko.com/' }] },
-  { id: '2', title: 'Cafe Aalto', category: 'cafe', description: '映画「かもめ食堂」のロケ地。', imageColor: 'bg-amber-700', links: [] },
-  { id: '3', title: 'ヘルシンキ大聖堂', category: 'sightseeing', description: '白亜の美しい大聖堂。', imageColor: 'bg-blue-400', links: [] },
-  { id: '4', title: 'Löyly (ロウリュ)', category: 'sightseeing', description: '海に入れるおしゃれサウナ。', imageColor: 'bg-stone-600', links: [] },
-];
-
-const INITIAL_SCHEDULE: ScheduleDay[] = [
-  { id: 'd1', date: '6/19', dayOfWeek: 'Fri', title: '出発 & 機内泊', iconType: 'plane', content: '夜、セントレアから出発！機内では寝て時差ボケ対策。', events: [] },
-  { id: 'd2', date: '6/20', dayOfWeek: 'Sat', title: 'ヘルシンキ到着', iconType: 'map', content: '早朝到着。荷物を預けてエスプラナーディ公園を散歩。', events: [] },
-  { id: 'd3', date: '6/21', dayOfWeek: 'Sun', title: 'マリメッコDay', iconType: 'shopping', content: 'マリメッコ本社へ！(日曜営業要確認)', events: [] },
-  { id: 'd4', date: '6/22', dayOfWeek: 'Mon', title: 'タリン日帰り旅行', iconType: 'luggage', content: 'フェリーでエストニアのタリンへ。', events: [] },
-  { id: 'd5', date: '6/23', dayOfWeek: 'Tue', title: 'サウナ & 自然', iconType: 'sun', content: 'Löylyでサウナ体験。', events: [] },
-  { id: 'd6', date: '6/24', dayOfWeek: 'Wed', title: '美術館巡り', iconType: 'camera', content: 'アモス・レックスやキアズマ現代美術館へ。', events: [] },
-  { id: 'd7', date: '6/25', dayOfWeek: 'Thu', title: 'お土産探し', iconType: 'shopping', content: 'ストックマンデパートやスーパーへ。', events: [] },
-  { id: 'd8', date: '6/26', dayOfWeek: 'Fri', title: 'のんびりDay', iconType: 'coffee', content: '気に入ったカフェ再訪。', events: [] },
-  { id: 'd9', date: '6/27', dayOfWeek: 'Sat', title: '最終日ディナー', iconType: 'heart', content: '最後の夜は美味しいサーモンを。', events: [] },
-  { id: 'd10', date: '6/28', dayOfWeek: 'Sun', title: '帰国', iconType: 'plane', content: '00:45発。機内で爆睡。', events: [] },
-];
-
-const INITIAL_EXPENSES: Expense[] = [
-  { id: 'e1', title: '航空券 (2人分)', amount: 267560, currency: 'JPY', payer: 'Misaki', method: 'Credit Card', category: 'Ticket', date: '2026-01-10' },
-  { id: 'e2', title: 'ホテル予約', amount: 450, currency: 'EUR', payer: 'Yutaro', method: 'Credit Card', category: 'Stay', date: '2026-02-15' },
-];
-
-// --- Gemini API Helper ---
-const apiKey = ""; 
-
-const callGemini = async (prompt: string): Promise<string> => {
-  try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }]
-        })
-      }
-    );
-    if (!response.ok) throw new Error('API call failed');
-    const data = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-  } catch (error) {
-    console.error("Gemini API Error:", error);
-    return "";
-  }
+const INITIAL_DATA = {
+  items: [
+    { id: '1', text: 'パスポート', checked: false, category: 'essential' },
+    { id: '2', text: 'クレジットカード', checked: false, category: 'essential' },
+    { id: '3', text: '変換プラグ (Cタイプ)', checked: false, category: 'electronics' },
+  ] as PackingItem[],
+  spots: [
+    { id: '1', title: 'Marimekko本社', category: 'shopping', description: '社員食堂でランチ！', imageColor: 'bg-red-400', links: [] },
+    { id: '2', title: 'ヘルシンキ大聖堂', category: 'sightseeing', description: '白い大聖堂', imageColor: 'bg-blue-400', links: [] },
+  ] as Spot[],
+  schedule: [
+    { id: 'd1', date: '6/19', dayOfWeek: 'Fri', title: '出発', iconType: 'plane', content: 'セントレア発！', events: [] },
+    { id: 'd2', date: '6/20', dayOfWeek: 'Sat', title: '到着', iconType: 'map', content: '早朝到着。荷物を預けて散策。', events: [] },
+    { id: 'd3', date: '6/21', dayOfWeek: 'Sun', title: 'マリメッコ', iconType: 'shopping', content: 'ショッピングDay', events: [] },
+    { id: 'd4', date: '6/22', dayOfWeek: 'Mon', title: 'タリン', iconType: 'luggage', content: 'フェリーでエストニアへ', events: [] },
+    { id: 'd5', date: '6/23', dayOfWeek: 'Tue', title: 'サウナ', iconType: 'sun', content: 'Löylyでととのう', events: [] },
+    { id: 'd6', date: '6/24', dayOfWeek: 'Wed', title: '美術館', iconType: 'camera', content: 'アート巡り', events: [] },
+    { id: 'd7', date: '6/25', dayOfWeek: 'Thu', title: 'お土産', iconType: 'shopping', content: 'スーパーで買い出し', events: [] },
+    { id: 'd8', date: '6/26', dayOfWeek: 'Fri', title: 'カフェ', iconType: 'coffee', content: 'のんびり過ごす', events: [] },
+    { id: 'd9', date: '6/27', dayOfWeek: 'Sat', title: '最終日', iconType: 'heart', content: '最後のディナー', events: [] },
+    { id: 'd10', date: '6/28', dayOfWeek: 'Sun', title: '帰国', iconType: 'plane', content: '機内泊〜帰宅', events: [] },
+  ] as ScheduleDay[],
+  expenses: [
+    { id: 'e1', title: '航空券', amount: 260000, currency: 'JPY', payer: 'Misaki', method: 'Credit Card', category: 'Ticket', date: '2026-01-10' },
+  ] as Expense[]
 };
 
-// --- Firebase Init ---
-let app, auth, db;
-let isFirebaseAvailable = false;
-let appId = 'default-app-id';
+// --- Firebase Initialization ---
+let db: any;
+let isFirebaseReady = false;
 
-try {
-  if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-    const firebaseConfig = JSON.parse(__firebase_config);
-    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-    auth = getAuth(app);
+if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
+  try {
+    const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+    const auth = getAuth(app);
     db = getFirestore(app);
-    isFirebaseAvailable = true;
-    if (typeof __app_id !== 'undefined') appId = __app_id;
+    isFirebaseReady = true;
+    signInAnonymously(auth).catch((e) => console.error("Auth Error", e));
+  } catch (e) {
+    console.error("Firebase Init Error", e);
   }
-} catch (e) {
-  console.error("Firebase init failed:", e);
-  isFirebaseAvailable = false;
 }
+
+const TRIP_ID = 'helsinki-trip-2026';
+
+// --- Gemini API ---
+const callGemini = async (prompt: string): Promise<string> => {
+  if (!geminiApiKey) return ""; 
+  try {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${geminiApiKey}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    });
+    if (!response.ok) return "";
+    const data = await response.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  } catch { return ""; }
+};
 
 // --- Components ---
 
@@ -175,7 +126,7 @@ const Header = ({ activeTab, setActiveTab }: { activeTab: TabType, setActiveTab:
   <nav className="fixed top-0 left-0 right-0 bg-white/90 backdrop-blur-md z-50 border-b border-blue-100 h-16 flex items-center justify-between px-4 shadow-sm overflow-x-auto no-scrollbar">
     <div className="flex items-center gap-2 cursor-pointer flex-shrink-0 mr-4" onClick={() => setActiveTab('home')}>
       <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold shadow-blue-200 shadow-lg">M</div>
-      <span className="font-bold text-blue-900 text-lg tracking-tight hidden sm:block">Helsinki Trip</span>
+      <span className="font-bold text-blue-900 text-lg tracking-tight hidden sm:block">Helsinki</span>
     </div>
     <div className="flex gap-1 bg-slate-100 p-1 rounded-full text-xs font-medium text-slate-500 flex-shrink-0">
       <button onClick={() => setActiveTab('schedule')} className={`px-3 py-1.5 rounded-full ${activeTab === 'schedule' ? 'bg-white text-blue-600 shadow-sm' : ''}`}>Plan</button>
@@ -224,8 +175,7 @@ const Hero = () => (
     </div>
   </div>
 );
-
-const ExpensesView = ({ expenses, setExpenses }: { expenses: Expense[], setExpenses: (e: Expense[]) => void }) => {
+const ExpensesView = ({ expenses, onSave }: { expenses: Expense[], onSave: (e: Expense[]) => void }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [exchangeRate, setExchangeRate] = useState(165);
   const [newExpense, setNewExpense] = useState<Partial<Expense>>({ title: '', amount: '' as any, currency: 'JPY', payer: 'Misaki', method: 'Credit Card', category: 'Food', date: new Date().toISOString().split('T')[0] });
@@ -237,7 +187,7 @@ const ExpensesView = ({ expenses, setExpenses }: { expenses: Expense[], setExpen
 
   const handleAdd = () => {
     if (!newExpense.title || !newExpense.amount) return;
-    setExpenses([{ id: Date.now().toString(), title: newExpense.title!, amount: Number(newExpense.amount), currency: newExpense.currency as Currency, payer: newExpense.payer as Payer, method: newExpense.method as PaymentMethod, category: newExpense.category as ExpenseCategory, date: newExpense.date! }, ...expenses]);
+    onSave([{ id: Date.now().toString(), title: newExpense.title!, amount: Number(newExpense.amount), currency: newExpense.currency as Currency, payer: newExpense.payer as Payer, method: newExpense.method as PaymentMethod, category: newExpense.category as ExpenseCategory, date: newExpense.date! }, ...expenses]);
     setIsAdding(false);
     setNewExpense({ ...newExpense, title: '', amount: '' as any });
   };
@@ -295,7 +245,7 @@ const ExpensesView = ({ expenses, setExpenses }: { expenses: Expense[], setExpen
                 <div className="font-bold">{e.currency === 'JPY' ? '¥' : '€'}{e.amount.toLocaleString()}</div>
                 {e.currency === 'EUR' && <div className="text-[10px] text-slate-400">≈ ¥{Math.round(e.amount * exchangeRate).toLocaleString()}</div>}
              </div>
-             <button onClick={() => setExpenses(expenses.filter(ex => ex.id !== e.id))} className="text-slate-300 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+             <button onClick={() => onSave(expenses.filter(ex => ex.id !== e.id))} className="text-slate-300 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
           </div>
         ))}
       </div>
@@ -318,6 +268,7 @@ const DayDetailView = ({ day, allDays, onBack, onUpdate, onMove }: { day: Schedu
     onUpdate({ ...day, events: [...day.events, { id: Date.now().toString(), ...newEvent }].sort((a,b)=>a.time.localeCompare(b.time)) });
     setIsAddingEvent(false); setNewEvent({ time: '', title: '', description: '', link: '' });
   };
+  const handleDeleteEvent = (id: string) => { onUpdate({ ...day, events: day.events.filter(e => e.id !== id) }); };
   
   return (
     <div className="fixed inset-0 bg-white z-[60] overflow-y-auto animate-in slide-in-from-right">
@@ -352,8 +303,14 @@ const DayDetailView = ({ day, allDays, onBack, onUpdate, onMove }: { day: Schedu
             <div key={e.id} className="pl-8 relative">
               <div className="absolute -left-[7px] top-1.5 w-3.5 h-3.5 bg-blue-500 rounded-full border-2 border-white"/>
               <div className="bg-white p-3 rounded-xl border shadow-sm">
-                <div className="flex justify-between"><div className="font-bold text-blue-600">{e.time} <span className="text-slate-800">{e.title}</span></div><button onClick={() => onUpdate({...day, events: day.events.filter(ev => ev.id !== e.id)})} className="text-slate-300"><Trash2 className="w-4 h-4"/></button></div>
-                {e.description && <div className="text-sm text-slate-500 mt-1">{e.description}</div>}
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="font-bold text-blue-600 flex items-center gap-2">{e.time} <span className="text-slate-800">{e.title}</span></div>
+                    {e.description && <div className="text-sm text-slate-500 mt-1 whitespace-pre-wrap">{e.description}</div>}
+                    {e.link && <a href={e.link} target="_blank" rel="noreferrer" className="text-xs bg-slate-50 px-2 py-1 rounded inline-flex items-center gap-1 mt-2 text-blue-500"><ExternalLink className="w-3 h-3"/> Link</a>}
+                  </div>
+                  {isEditing && <button onClick={() => handleDeleteEvent(e.id)} className="text-slate-300 hover:text-red-400"><Trash2 className="w-4 h-4"/></button>}
+                </div>
               </div>
             </div>
           ))}
@@ -364,6 +321,7 @@ const DayDetailView = ({ day, allDays, onBack, onUpdate, onMove }: { day: Schedu
            <div className="bg-white p-4 rounded border shadow-lg">
              <div className="flex gap-2 mb-2"><input type="time" className="border rounded p-1" value={newEvent.time} onChange={e=>setNewEvent({...newEvent, time:e.target.value})}/><input className="border rounded p-1 flex-1" placeholder="Title" value={newEvent.title} onChange={e=>setNewEvent({...newEvent, title:e.target.value})}/></div>
              <textarea className="w-full border rounded p-1 mb-2" placeholder="Details" value={newEvent.description} onChange={e=>setNewEvent({...newEvent, description:e.target.value})}/>
+             <input className="w-full border rounded p-1 mb-2" placeholder="Link URL" value={newEvent.link} onChange={e=>setNewEvent({...newEvent, link:e.target.value})}/>
              <div className="flex justify-end gap-2"><button onClick={()=>setIsAddingEvent(false)} className="text-xs font-bold text-slate-400">Cancel</button><button onClick={handleAdd} className="text-xs font-bold bg-blue-600 text-white px-3 py-1 rounded">Add</button></div>
            </div>
         )}
@@ -372,7 +330,7 @@ const DayDetailView = ({ day, allDays, onBack, onUpdate, onMove }: { day: Schedu
   );
 };
 
-const ScheduleView = ({ schedule, setSchedule }: { schedule: ScheduleDay[], setSchedule: (s: ScheduleDay[]) => void }) => {
+const ScheduleView = ({ schedule, onSave }: { schedule: ScheduleDay[], onSave: (s: ScheduleDay[]) => void }) => {
   const [selectedId, setSelectedId] = useState<string|null>(null);
   const handleMove = (targetId: string) => {
     if(!selectedId) return;
@@ -380,17 +338,15 @@ const ScheduleView = ({ schedule, setSchedule }: { schedule: ScheduleDay[], setS
     const tIdx = schedule.findIndex(d => d.id === targetId);
     if(sIdx === -1 || tIdx === -1) return;
     const newSched = [...schedule];
-    
     const contentS = { title: newSched[sIdx].title, icon: newSched[sIdx].iconType, content: newSched[sIdx].content, events: newSched[sIdx].events };
     const contentT = { title: newSched[tIdx].title, icon: newSched[tIdx].iconType, content: newSched[tIdx].content, events: newSched[tIdx].events };
-    
     newSched[sIdx] = { ...newSched[sIdx], title: contentT.title, iconType: contentT.icon, content: contentT.content, events: contentT.events };
     newSched[tIdx] = { ...newSched[tIdx], title: contentS.title, iconType: contentS.icon, content: contentS.content, events: contentS.events };
-    setSchedule(newSched);
+    onSave(newSched);
     setSelectedId(targetId);
   };
   const selectedDay = schedule.find(d => d.id === selectedId);
-  if(selectedId && selectedDay) return <DayDetailView day={selectedDay} allDays={schedule} onBack={()=>setSelectedId(null)} onUpdate={(d)=>setSchedule(schedule.map(c=>c.id===d.id?d:c))} onMove={handleMove}/>;
+  if(selectedId && selectedDay) return <DayDetailView day={selectedDay} allDays={schedule} onBack={()=>setSelectedId(null)} onUpdate={(d)=>onSave(schedule.map(c=>c.id===d.id?d:c))} onMove={handleMove}/>;
 
   return (
     <div className="px-4 pb-20 pt-20">
@@ -414,67 +370,36 @@ const ScheduleView = ({ schedule, setSchedule }: { schedule: ScheduleDay[], setS
   );
 };
 
-const PackingView = ({ items, setItems }: any) => {
+const PackingView = ({ items, onSave }: { items: PackingItem[], onSave: (i: PackingItem[]) => void }) => {
   const [text, setText] = useState('');
-  const [cat, setCat] = useState<ItemCategory>('essential');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
 
-  const add = () => { if(!text) return; setItems([...items, {id: Date.now().toString(), text, checked: false, category: cat}]); setText(''); };
-  
+  const add = () => { if(!text) return; onSave([...items, {id: Date.now().toString(), text, checked: false, category: 'essential'}]); setText(''); };
   const suggestItems = async () => {
-    setIsAiLoading(true);
-    setAiSuggestions([]);
+    setIsAiLoading(true); setAiSuggestions([]);
     const currentItems = items.map((i: any) => i.text).join(", ");
-    const prompt = `I am a 20s female traveler going to Helsinki in late June. My packing list currently has: ${currentItems}. Suggest 5-6 highly specific, useful items I might be missing (e.g., related to Finnish weather, culture, sauna). Return ONLY the item names separated by commas (e.g., Swimsuit, Portable Charger). No explanations.`;
+    const prompt = `Traveler: 20s female, Helsinki in June. Packed: ${currentItems}. Suggest 5 missing, specific, useful items. Return comma-separated list ONLY.`;
     const res = await callGemini(prompt);
-    if(res) {
-      const suggestions = res.split(',').map(s => s.trim()).filter(s => s.length > 0);
-      setAiSuggestions(suggestions);
-    }
+    if(res) setAiSuggestions(res.split(',').map(s=>s.trim()).filter(s=>s));
     setIsAiLoading(false);
   };
-
-  const addSuggestion = (s: string) => {
-    setItems([...items, {id: Date.now().toString(), text: s, checked: false, category: 'other'}]);
-    setAiSuggestions(aiSuggestions.filter(item => item !== s));
-  };
+  const addSuggestion = (s: string) => { onSave([...items, {id: Date.now().toString(), text: s, checked: false, category: 'other'}]); setAiSuggestions(aiSuggestions.filter(item => item !== s)); };
 
   return (
     <div className="px-4 pb-20 pt-20">
       <div className="bg-gradient-to-r from-blue-500 to-cyan-400 p-6 rounded-2xl text-white mb-6 shadow-lg"><h2 className="font-bold text-xl">Packing List</h2><div className="text-right font-bold text-2xl">{items.length>0?Math.round((items.filter((i:any)=>i.checked).length/items.length)*100):0}%</div></div>
-      
-      {/* AI Suggestion Area */}
       <div className="mb-6">
-        <button 
-          onClick={suggestItems} 
-          disabled={isAiLoading}
-          className="w-full py-3 bg-gradient-to-r from-purple-50 to-indigo-50 border border-indigo-100 text-indigo-700 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:from-purple-100 hover:to-indigo-100 transition-all shadow-sm"
-        >
-          {isAiLoading ? <Loader2 className="w-4 h-4 animate-spin"/> : <Sparkles className="w-4 h-4 text-amber-400"/>} 
-          {isAiLoading ? "Asking AI..." : "Suggest Missing Items"}
-        </button>
-        {aiSuggestions.length > 0 && (
-          <div className="mt-3 bg-white border border-indigo-100 p-3 rounded-xl shadow-sm animate-in fade-in slide-in-from-top-2">
-            <div className="text-xs font-bold text-indigo-400 uppercase mb-2">AI Suggestions (Tap to add)</div>
-            <div className="flex flex-wrap gap-2">
-              {aiSuggestions.map((s, idx) => (
-                <button key={idx} onClick={() => addSuggestion(s)} className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs px-3 py-1.5 rounded-full transition-colors flex items-center gap-1">
-                  <Plus className="w-3 h-3"/> {s}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+        <button onClick={suggestItems} disabled={isAiLoading} className="w-full py-3 bg-purple-50 text-indigo-700 font-bold rounded-xl flex justify-center gap-2 hover:bg-purple-100">{isAiLoading ? <Loader2 className="animate-spin"/> : <Sparkles/>} Suggest Missing Items</button>
+        {aiSuggestions.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{aiSuggestions.map((s, idx) => (<button key={idx} onClick={() => addSuggestion(s)} className="bg-indigo-50 text-indigo-700 text-xs px-3 py-1 rounded-full flex items-center gap-1"><Plus className="w-3 h-3"/> {s}</button>))}</div>}
       </div>
-
       <div className="flex gap-2 mb-4"><input className="border rounded-full px-4 py-2 flex-1" value={text} onChange={e=>setText(e.target.value)} placeholder="Add item..."/><button onClick={add} className="bg-blue-600 text-white rounded-full w-10 h-10 flex items-center justify-center"><Plus className="w-5 h-5"/></button></div>
       <div className="space-y-4">
         {['essential','clothing','beauty','electronics','other'].map(c => {
           const catItems = items.filter((i:any)=>i.category===c);
           if(catItems.length===0) return null;
           return <div key={c}><h3 className="font-bold text-xs uppercase text-slate-400 mb-2">{c}</h3>
-            {catItems.map((i:any)=>(<div key={i.id} className="flex gap-3 items-center bg-white p-3 rounded-xl border mb-2"><button onClick={()=>setItems(items.map((it:any)=>it.id===i.id?{...it,checked:!it.checked}:it))} className={`w-5 h-5 border rounded flex items-center justify-center ${i.checked?'bg-blue-500 border-blue-500':''}`}>{i.checked&&<CheckSquare className="w-3 h-3 text-white"/>}</button><span className={i.checked?'line-through text-slate-300':'text-slate-700'}>{i.text}</span><button onClick={()=>setItems(items.filter((it:any)=>it.id!==i.id))} className="ml-auto text-slate-200 hover:text-red-400"><Trash2 className="w-4 h-4"/></button></div>))}
+            {catItems.map((i:any)=>(<div key={i.id} className="flex gap-3 items-center bg-white p-3 rounded-xl border mb-2"><button onClick={()=>onSave(items.map((it:any)=>it.id===i.id?{...it,checked:!it.checked}:it))} className={`w-5 h-5 border rounded flex items-center justify-center ${i.checked?'bg-blue-500 border-blue-500':''}`}>{i.checked&&<CheckSquare className="w-3 h-3 text-white"/>}</button><span className={i.checked?'line-through text-slate-300':'text-slate-700'}>{i.text}</span><button onClick={()=>onSave(items.filter((it:any)=>it.id!==i.id))} className="ml-auto text-slate-200 hover:text-red-400"><Trash2 className="w-4 h-4"/></button></div>))}
           </div>
         })}
       </div>
@@ -482,66 +407,73 @@ const PackingView = ({ items, setItems }: any) => {
   );
 };
 
-const SpotsView = ({ spots, setSpots }: any) => {
+const SpotDetailView = ({ spot, onBack, onUpdate }: { spot: Spot, onBack: () => void, onUpdate: (s: Spot) => void }) => {
+  const [newLinkTitle, setNewLinkTitle] = useState('');
+  const [newLinkUrl, setNewLinkUrl] = useState('');
+  const [isAddingLink, setIsAddingLink] = useState(false);
+  const [description, setDescription] = useState(spot.description);
+
+  const handleAddLink = () => {
+    if (!newLinkUrl) return;
+    onUpdate({ ...spot, links: [...spot.links, { id: Date.now().toString(), title: newLinkTitle || 'Link', url: newLinkUrl }] });
+    setNewLinkTitle(''); setNewLinkUrl(''); setIsAddingLink(false);
+  };
+  const handleDeleteLink = (id: string) => onUpdate({ ...spot, links: spot.links.filter(l => l.id !== id) });
+  
+  return (
+    <div className="fixed inset-0 bg-white z-[60] overflow-y-auto animate-in slide-in-from-right">
+      <div className={`h-48 ${spot.imageColor} relative`}>
+        <button onClick={onBack} className="absolute top-4 left-4 w-10 h-10 bg-black/20 text-white rounded-full flex items-center justify-center"><ArrowLeft className="w-6 h-6"/></button>
+        <div className="absolute bottom-6 left-6 text-white"><div className="text-xs font-bold uppercase mb-1 bg-white/20 inline-block px-2 rounded">{spot.category}</div><h2 className="text-3xl font-bold">{spot.title}</h2></div>
+      </div>
+      <div className="p-6">
+        <textarea className="w-full p-3 bg-slate-50 rounded-xl mb-6" rows={4} value={description} onChange={e=>setDescription(e.target.value)} onBlur={()=>onUpdate({...spot,description})} placeholder="Memo..."/>
+        <div className="mb-4 text-sm font-bold text-slate-400 uppercase flex items-center gap-2"><LinkIcon className="w-4 h-4"/> Links</div>
+        <div className="space-y-2 mb-4">
+          {spot.links.map(l => (<div key={l.id} className="flex items-center gap-3 p-3 border rounded-xl"><Globe className="w-4 h-4 text-blue-500"/><div className="flex-1 text-sm font-bold">{l.title}</div><a href={l.url} target="_blank" rel="noreferrer" className="text-blue-500"><ExternalLink className="w-4 h-4"/></a><button onClick={()=>handleDeleteLink(l.id)} className="text-slate-300"><Trash2 className="w-4 h-4"/></button></div>))}
+        </div>
+        {isAddingLink ? (
+          <div className="bg-slate-50 p-4 rounded-xl">
+            <input className="w-full p-2 mb-2 border rounded text-sm" placeholder="Title" value={newLinkTitle} onChange={e=>setNewLinkTitle(e.target.value)}/>
+            <input className="w-full p-2 mb-2 border rounded text-sm" placeholder="URL" value={newLinkUrl} onChange={e=>setNewLinkUrl(e.target.value)}/>
+            <div className="flex justify-end gap-2"><button onClick={()=>setIsAddingLink(false)} className="text-xs">Cancel</button><button onClick={handleAddLink} className="text-xs font-bold bg-blue-600 text-white px-3 py-1 rounded">Add</button></div>
+          </div>
+        ) : <button onClick={()=>setIsAddingLink(true)} className="w-full py-3 border-dashed border rounded-xl text-slate-500 text-sm font-bold flex justify-center gap-2"><Plus className="w-4 h-4"/> Add Link</button>}
+      </div>
+    </div>
+  );
+};
+
+const SpotsView = ({ spots, onSave }: { spots: Spot[], onSave: (s: Spot[]) => void }) => {
   const [form, setForm] = useState(false);
   const [newS, setNewS] = useState({title:'', description:'', category:'sightseeing'});
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiRecs, setAiRecs] = useState<any[]>([]);
+  const [selectedSpotId, setSelectedSpotId] = useState<string|null>(null);
 
-  const add = () => { if(!newS.title)return; setSpots([...spots, {id:Date.now().toString(),...newS, imageColor:'bg-indigo-400',links:[]}]); setForm(false); setNewS({title:'',description:'',category:'sightseeing'}); };
-  
+  const add = () => { if(!newS.title)return; onSave([...spots, {id:Date.now().toString(),...newS, imageColor:'bg-indigo-400',links:[]}]); setForm(false); setNewS({title:'',description:'',category:'sightseeing'}); };
   const recommendSpots = async () => {
     setIsAiLoading(true);
     const current = spots.map((s:any) => s.title).join(", ");
-    const prompt = `I am visiting Helsinki and I like these places: ${current}. Suggest 3 OTHER specific places (shops, cafes, or sights) that fit this vibe. Return strictly a JSON array of objects with keys: title, description, category (one of: sightseeing, shopping, food, cafe). Do not include markdown formatting.`;
+    const prompt = `Likes: ${current}. Suggest 3 NEW Helsinki spots. Return JSON array [{title, description, category}]. No markdown.`;
     const res = await callGemini(prompt);
-    try {
-      const cleanJson = res.replace(/```json|```/g, '').trim();
-      const data = JSON.parse(cleanJson);
-      if(Array.isArray(data)) setAiRecs(data);
-    } catch(e) { console.error(e); }
+    try { setAiRecs(JSON.parse(res.replace(/```json|```/g, '').trim())); } catch(e) {}
     setIsAiLoading(false);
   };
-
-  const addRec = (rec: any) => {
-    setSpots([...spots, {id:Date.now().toString(), title: rec.title, description: rec.description, category: rec.category, imageColor:'bg-pink-400', links:[]}]);
-    setAiRecs(aiRecs.filter(r => r.title !== rec.title));
-  };
+  const addRec = (rec: any) => { onSave([...spots, {id:Date.now().toString(), title: rec.title, description: rec.description, category: rec.category, imageColor:'bg-pink-400', links:[]}]); setAiRecs(aiRecs.filter(r => r.title !== rec.title)); };
+  
+  const selectedSpot = spots.find((s:any)=>s.id===selectedSpotId);
+  if(selectedSpot) return <SpotDetailView spot={selectedSpot} onBack={()=>setSelectedSpotId(null)} onUpdate={(up:any)=>onSave(spots.map((s:any)=>s.id===up.id?up:s))}/>;
 
   return (
     <div className="px-4 pb-20 pt-20">
       <div className="flex justify-between mb-6"><h2 className="font-bold text-xl flex gap-2 items-center"><Heart className="w-5 h-5 text-pink-500"/> Wish List</h2><button onClick={()=>setForm(!form)} className="bg-slate-100 px-3 py-1 rounded-full text-xs font-bold">{form?'Cancel':'+ Add'}</button></div>
-      
-      {/* AI Recommendations */}
-      <div className="mb-6">
-         <button 
-          onClick={recommendSpots} 
-          disabled={isAiLoading}
-          className="w-full py-3 bg-gradient-to-r from-pink-50 to-orange-50 border border-orange-100 text-orange-700 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:from-pink-100 hover:to-orange-100 transition-all shadow-sm"
-        >
-          {isAiLoading ? <Loader2 className="w-4 h-4 animate-spin"/> : <Sparkles className="w-4 h-4 text-pink-400"/>} 
-          {isAiLoading ? "Scouting..." : "Find New Gems"}
-        </button>
-        {aiRecs.length > 0 && (
-          <div className="mt-4 grid gap-3 animate-in fade-in slide-in-from-top-4">
-             <div className="text-center text-xs font-bold text-orange-400 uppercase tracking-widest">AI Recommended</div>
-             {aiRecs.map((rec, i) => (
-               <div key={i} className="bg-orange-50 border border-orange-100 p-3 rounded-xl flex justify-between items-center">
-                 <div>
-                   <div className="text-[10px] font-bold text-orange-400 uppercase">{rec.category}</div>
-                   <div className="font-bold text-sm text-slate-800">{rec.title}</div>
-                   <div className="text-xs text-slate-500 line-clamp-1">{rec.description}</div>
-                 </div>
-                 <button onClick={() => addRec(rec)} className="bg-white text-orange-500 p-2 rounded-full shadow-sm hover:scale-110 transition-transform"><Plus className="w-4 h-4"/></button>
-               </div>
-             ))}
-          </div>
-        )}
+      <div className="mb-6"><button onClick={recommendSpots} disabled={isAiLoading} className="w-full py-3 bg-orange-50 text-orange-700 font-bold rounded-xl flex justify-center gap-2 hover:bg-orange-100">{isAiLoading ? <Loader2 className="animate-spin"/> : <Sparkles/>} Find New Gems</button>
+        {aiRecs.length > 0 && <div className="mt-4 grid gap-3">{aiRecs.map((rec, i) => (<div key={i} className="bg-orange-50 p-3 rounded-xl flex justify-between items-center"><div><div className="text-[10px] font-bold text-orange-400">{rec.category}</div><div className="font-bold text-sm">{rec.title}</div></div><button onClick={() => addRec(rec)} className="bg-white text-orange-500 p-2 rounded-full"><Plus className="w-4 h-4"/></button></div>))}</div>}
       </div>
-
       {form && <div className="bg-white p-4 rounded-xl border shadow-lg mb-6"><input className="w-full border rounded p-2 mb-2" placeholder="Name" value={newS.title} onChange={e=>setNewS({...newS,title:e.target.value})}/><textarea className="w-full border rounded p-2 mb-2" placeholder="Memo" value={newS.description} onChange={e=>setNewS({...newS,description:e.target.value})}/><button onClick={add} className="w-full bg-blue-600 text-white font-bold py-2 rounded">Save</button></div>}
       <div className="grid grid-cols-2 gap-4">{spots.map((s:any) => (
-        <div key={s.id} className="bg-white rounded-2xl overflow-hidden border shadow-sm relative"><div className={`h-24 ${s.imageColor} flex items-center justify-center`}>{s.category==='food'?<Heart className="text-white/50"/>:<Camera className="text-white/50"/>}</div><div className="p-3"><div className="text-xs font-bold text-blue-500 uppercase">{s.category}</div><div className="font-bold text-sm mb-1">{s.title}</div><div className="text-xs text-slate-500 line-clamp-2">{s.description}</div><button onClick={()=>setSpots(spots.filter((sp:any)=>sp.id!==s.id))} className="absolute top-2 right-2 bg-black/20 text-white p-1 rounded-full"><X className="w-3 h-3"/></button></div></div>
+        <div key={s.id} onClick={()=>setSelectedSpotId(s.id)} className="bg-white rounded-2xl overflow-hidden border shadow-sm relative"><div className={`h-24 ${s.imageColor} flex items-center justify-center`}>{s.category==='food'?<Heart className="text-white/50"/>:<Camera className="text-white/50"/>}</div><div className="p-3"><div className="text-xs font-bold text-blue-500 uppercase">{s.category}</div><div className="font-bold text-sm mb-1">{s.title}</div><div className="text-xs text-slate-500 line-clamp-2">{s.description}</div><button onClick={(e)=>{e.stopPropagation(); onSave(spots.filter((sp:any)=>sp.id!==s.id));}} className="absolute top-2 right-2 bg-black/20 text-white p-1 rounded-full"><X className="w-3 h-3"/></button></div></div>
       ))}</div>
     </div>
   );
@@ -550,41 +482,58 @@ const SpotsView = ({ spots, setSpots }: any) => {
 // --- Main App ---
 
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('home');
-  const [items, setItems] = useState<PackingItem[]>(INITIAL_PACKING_LIST);
-  const [spots, setSpots] = useState<Spot[]>(INITIAL_SPOTS);
-  const [schedule, setSchedule] = useState<ScheduleDay[]>(INITIAL_SCHEDULE);
-  const [expenses, setExpenses] = useState<Expense[]>(INITIAL_EXPENSES);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<any>(INITIAL_DATA);
+  const [isSetup, setIsSetup] = useState(false);
 
   useEffect(() => {
-    if(!isFirebaseAvailable) { setLoading(false); return; }
-    const initAuth = async () => { try { if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token); else await signInAnonymously(auth); } catch(e){ setLoading(false); } };
-    initAuth();
-    return onAuthStateChanged(auth, setUser);
+    // Configチェック
+    if (isFirebaseReady && db) {
+      setIsSetup(true);
+      // データ同期開始
+      const unsub = onSnapshot(doc(db, 'trips', TRIP_ID), (docSnap: any) => {
+        if (docSnap.exists()) {
+          setData(docSnap.data());
+        } else {
+          setDoc(doc(db, 'trips', TRIP_ID), INITIAL_DATA);
+        }
+      });
+      return () => unsub();
+    }
   }, []);
 
-  useEffect(() => {
-    if(!isFirebaseAvailable || !user) return;
-    return onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'planner', 'main'), (snap) => {
-      if(snap.exists()) { const d = snap.data(); if(d.items) setItems(d.items); if(d.spots) setSpots(d.spots); if(d.schedule) setSchedule(d.schedule); if(d.expenses) setExpenses(d.expenses); }
-      setLoading(false);
-    });
-  }, [user]);
+  const handleSave = (key: string, val: any) => {
+    const newData = { ...data, [key]: val };
+    setData(newData); // 即時反映
+    if (isFirebaseReady && db) {
+      setDoc(doc(db, 'trips', TRIP_ID), { [key]: val }, { merge: true });
+    }
+  };
 
-  const save = async (data: any) => { if(isFirebaseAvailable && user) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'planner', 'main'), data, {merge:true}); };
-  
+  if (!isSetup) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+        <div className="bg-white p-6 rounded-2xl shadow-lg max-w-sm w-full text-center">
+          <div className="flex justify-center mb-4"><AlertCircle className="w-10 h-10 text-amber-500"/></div>
+          <h2 className="text-lg font-bold text-slate-800 mb-2">Setup Required</h2>
+          <p className="text-sm text-slate-600 mb-4">
+            同期機能を使うにはFirebaseの設定が必要です。<br/>
+            <code>App.tsx</code> の <code>firebaseConfig</code> を書き換えてください。
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const content = () => {
     switch(activeTab) {
-      case 'schedule': return <ScheduleView schedule={schedule} setSchedule={(s)=>{setSchedule(s); save({schedule:s});}}/>;
-      case 'packing': return <PackingView items={items} setItems={(i:any)=>{setItems(i); save({items:i});}}/>;
-      case 'spots': return <SpotsView spots={spots} setSpots={(s:any)=>{setSpots(s); save({spots:s});}}/>;
-      case 'expenses': return <ExpensesView expenses={expenses} setExpenses={(e)=>{setExpenses(e); save({expenses:e});}}/>;
+      case 'schedule': return <ScheduleView schedule={data.schedule} onSave={(s)=>handleSave('schedule', s)}/>;
+      case 'packing': return <PackingView items={data.items} onSave={(i)=>handleSave('items', i)}/>;
+      case 'spots': return <SpotsView spots={data.spots} onSave={(s)=>handleSave('spots', s)}/>;
+      case 'expenses': return <ExpensesView expenses={data.expenses} onSave={(e)=>handleSave('expenses', e)}/>;
       default: return (
         <div className="pb-20 animate-in fade-in">
           <Hero />
-          {!isFirebaseAvailable && <div className="px-6 mb-4"><div className="bg-amber-50 p-3 rounded text-xs text-amber-800 flex gap-2"><AlertCircle className="w-4 h-4"/> Demo Mode: Changes not saved.</div></div>}
           <div className="px-6 -mt-6 relative z-20"><h3 className="text-sm font-bold text-slate-400 mb-3 pl-1">SCHEDULE</h3>{FLIGHTS.map((f,i)=><FlightCard key={i} flight={f}/>)}</div>
           <div className="px-6 mt-8"><div onClick={()=>setActiveTab('spots')} className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white relative cursor-pointer"><h3 className="font-bold text-lg mb-1">Must-Do List</h3><p className="text-indigo-100 text-sm mb-4">やりたいことリスト</p><div className="inline-flex items-center gap-1 bg-white/20 px-3 py-1.5 rounded-full text-xs">Check <ChevronRight className="w-3 h-3"/></div><Heart className="absolute -bottom-4 -right-4 w-24 h-24 text-white/10 rotate-12"/></div></div>
         </div>
@@ -592,10 +541,9 @@ export default function App() {
     }
   };
 
-  if(loading && isFirebaseAvailable) return <div className="min-h-screen flex items-center justify-center text-blue-500">Loading...</div>;
-
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-safe">
+      <TailwindInjector /> 
       <Header activeTab={activeTab} setActiveTab={setActiveTab} />
       <main className="max-w-md mx-auto bg-white min-h-screen shadow-2xl relative">{content()}</main>
     </div>
