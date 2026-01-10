@@ -3,13 +3,16 @@ import {
   Plane, Calendar, CheckSquare, Heart, Coffee, ShoppingBag, 
   Camera, Sun, Trash2, Plus, ChevronRight, Luggage, X, Wallet, 
   Sparkles, Loader2, ArrowLeft, Save, Edit2, ArrowRightLeft,
-  Link as LinkIcon, ExternalLink, Globe, CreditCard, Banknote, Coins, RefreshCw, AlertCircle
+  Link as LinkIcon, ExternalLink, Globe, CreditCard, Banknote, Coins, RefreshCw, AlertCircle,
+  Filter, MapPin
 } from 'lucide-react';
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, signInAnonymously } from 'firebase/auth';
+import { getAuth, signInAnonymously, onAuthStateChanged, User } from 'firebase/auth';
 import { getFirestore, doc, onSnapshot, setDoc } from 'firebase/firestore';
 
-// Your web app's Firebase configuration
+// ==========================================
+// ▼ Firebase Configuration (Your Config) ▼
+// ==========================================
 const firebaseConfig = {
   apiKey: "AIzaSyBodoPRFxwxjkWOXBdJUVO6W1nkP25ZIno",
   authDomain: "helsinki-trip-9d349.firebaseapp.com",
@@ -19,15 +22,9 @@ const firebaseConfig = {
   appId: "1:520178181946:web:cd631d7df67495dc095203"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+const geminiApiKey = ""; // AI機能用（任意）
 
-// Gemini APIキー (AI機能を使う場合のみ入力。なければ空欄でOK)
-const geminiApiKey = ""; 
-
-// ==========================================
-
-// --- デザイン（Tailwind CSS）読み込み ---
+// --- Tailwind Injector ---
 const TailwindInjector = () => {
   useEffect(() => {
     if (!document.querySelector('script[src="https://cdn.tailwindcss.com"]')) {
@@ -39,7 +36,7 @@ const TailwindInjector = () => {
   return null;
 };
 
-// --- 型定義 ---
+// --- Types ---
 type TabType = 'home' | 'schedule' | 'packing' | 'spots' | 'expenses';
 type SpotCategory = 'sightseeing' | 'shopping' | 'food' | 'cafe' | 'other';
 type ItemCategory = 'essential' | 'clothing' | 'beauty' | 'electronics' | 'other';
@@ -57,7 +54,7 @@ interface ScheduleEvent { id: string; time: string; title: string; description: 
 interface ScheduleDay { id: string; date: string; dayOfWeek: string; title: string; iconType: IconType; content: string; events: ScheduleEvent[]; }
 interface Expense { id: string; title: string; amount: number; currency: Currency; payer: Payer; method: PaymentMethod; category: ExpenseCategory; date: string; }
 
-// --- 初期データ ---
+// --- Initial Data ---
 const FLIGHTS: Flight[] = [
   { type: 'outbound', date: '6/19 (Fri)', depTime: '22:50', arrTime: '05:55', from: 'NGO', to: 'HEL', flightNo: 'AY0080', duration: '13h 05m' },
   { type: 'inbound', date: '6/28 (Sun)', depTime: '00:45', arrTime: '19:35', from: 'HEL', to: 'NGO', flightNo: 'AY0079', duration: '12h 50m' }
@@ -67,10 +64,12 @@ const INITIAL_DATA = {
     { id: '1', text: 'パスポート', checked: false, category: 'essential' },
     { id: '2', text: 'クレジットカード', checked: false, category: 'essential' },
     { id: '3', text: '変換プラグ (Cタイプ)', checked: false, category: 'electronics' },
+    { id: '4', text: 'ウルトラライトダウン', checked: false, category: 'clothing' },
   ] as PackingItem[],
   spots: [
     { id: '1', title: 'Marimekko本社', category: 'shopping', description: '社員食堂でランチ！', imageColor: 'bg-red-400', links: [] },
     { id: '2', title: 'ヘルシンキ大聖堂', category: 'sightseeing', description: '白い大聖堂', imageColor: 'bg-blue-400', links: [] },
+    { id: '3', title: 'Cafe Aalto', category: 'cafe', description: '映画のロケ地', imageColor: 'bg-amber-700', links: [] },
   ] as Spot[],
   schedule: [
     { id: 'd1', date: '6/19', dayOfWeek: 'Fri', title: '出発', iconType: 'plane', content: 'セントレア発！', events: [] },
@@ -89,21 +88,14 @@ const INITIAL_DATA = {
   ] as Expense[]
 };
 
-// --- Firebase Initialization ---
-let db: any;
-let isFirebaseReady = false;
-
-if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
-  try {
-    const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-    const auth = getAuth(app);
-    db = getFirestore(app);
-    isFirebaseReady = true;
-    signInAnonymously(auth).catch((e) => console.error("Auth Error", e));
-  } catch (e) {
-    console.error("Firebase Init Error", e);
-  }
-}
+// --- Firebase Init ---
+let app, auth: any, db: any;
+try {
+  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+  auth = getAuth(app);
+  db = getFirestore(app);
+  signInAnonymously(auth).catch((e) => console.error("Auth Error", e));
+} catch (e) { console.error("Firebase Init Error", e); }
 
 const TRIP_ID = 'helsinki-trip-2026';
 
@@ -121,7 +113,6 @@ const callGemini = async (prompt: string): Promise<string> => {
 };
 
 // --- Components ---
-
 const Header = ({ activeTab, setActiveTab }: { activeTab: TabType, setActiveTab: (t: TabType) => void }) => (
   <nav className="fixed top-0 left-0 right-0 bg-white/90 backdrop-blur-md z-50 border-b border-blue-100 h-16 flex items-center justify-between px-4 shadow-sm overflow-x-auto no-scrollbar">
     <div className="flex items-center gap-2 cursor-pointer flex-shrink-0 mr-4" onClick={() => setActiveTab('home')}>
@@ -145,21 +136,9 @@ const FlightCard = ({ flight }: { flight: Flight }) => (
       <span className="text-gray-400 text-xs font-mono">{flight.date}</span>
     </div>
     <div className="flex justify-between items-center">
-      <div className="text-center">
-        <div className="text-2xl font-bold text-gray-800">{flight.depTime}</div>
-        <div className="text-xs text-gray-500 font-medium">{flight.from}</div>
-      </div>
-      <div className="flex-1 px-4 flex flex-col items-center">
-        <div className="text-xs text-gray-400 mb-1">{flight.duration}</div>
-        <div className="w-full h-px bg-gray-300 relative flex items-center justify-center">
-          <Plane className="w-4 h-4 text-blue-500 absolute bg-white p-0.5 rotate-90" />
-        </div>
-        <div className="text-[10px] text-blue-400 mt-1 font-mono">{flight.flightNo}</div>
-      </div>
-      <div className="text-center">
-        <div className="text-2xl font-bold text-gray-800">{flight.arrTime}</div>
-        <div className="text-xs text-gray-500 font-medium">{flight.to}</div>
-      </div>
+      <div className="text-center"><div className="text-2xl font-bold text-gray-800">{flight.depTime}</div><div className="text-xs text-gray-500 font-medium">{flight.from}</div></div>
+      <div className="flex-1 px-4 flex flex-col items-center"><div className="text-xs text-gray-400 mb-1">{flight.duration}</div><div className="w-full h-px bg-gray-300 relative flex items-center justify-center"><Plane className="w-4 h-4 text-blue-500 absolute bg-white p-0.5 rotate-90" /></div><div className="text-[10px] text-blue-400 mt-1 font-mono">{flight.flightNo}</div></div>
+      <div className="text-center"><div className="text-2xl font-bold text-gray-800">{flight.arrTime}</div><div className="text-xs text-gray-500 font-medium">{flight.to}</div></div>
     </div>
   </div>
 );
@@ -175,6 +154,7 @@ const Hero = () => (
     </div>
   </div>
 );
+
 const ExpensesView = ({ expenses, onSave }: { expenses: Expense[], onSave: (e: Expense[]) => void }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [exchangeRate, setExchangeRate] = useState(165);
@@ -372,10 +352,12 @@ const ScheduleView = ({ schedule, onSave }: { schedule: ScheduleDay[], onSave: (
 
 const PackingView = ({ items, onSave }: { items: PackingItem[], onSave: (i: PackingItem[]) => void }) => {
   const [text, setText] = useState('');
+  const [cat, setCat] = useState<ItemCategory>('essential');
+  const [activeCat, setActiveCat] = useState<ItemCategory | 'all'>('all');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
 
-  const add = () => { if(!text) return; onSave([...items, {id: Date.now().toString(), text, checked: false, category: 'essential'}]); setText(''); };
+  const add = () => { if(!text) return; onSave([...items, {id: Date.now().toString(), text, checked: false, category: cat}]); setText(''); };
   const suggestItems = async () => {
     setIsAiLoading(true); setAiSuggestions([]);
     const currentItems = items.map((i: any) => i.text).join(", ");
@@ -386,19 +368,36 @@ const PackingView = ({ items, onSave }: { items: PackingItem[], onSave: (i: Pack
   };
   const addSuggestion = (s: string) => { onSave([...items, {id: Date.now().toString(), text: s, checked: false, category: 'other'}]); setAiSuggestions(aiSuggestions.filter(item => item !== s)); };
 
+  const categories = { essential: 'Essentials', clothing: 'Clothing', beauty: 'Beauty', electronics: 'Gadgets', other: 'Others' };
+
   return (
     <div className="px-4 pb-20 pt-20">
       <div className="bg-gradient-to-r from-blue-500 to-cyan-400 p-6 rounded-2xl text-white mb-6 shadow-lg"><h2 className="font-bold text-xl">Packing List</h2><div className="text-right font-bold text-2xl">{items.length>0?Math.round((items.filter((i:any)=>i.checked).length/items.length)*100):0}%</div></div>
+      
+      {/* Filter Tabs */}
+      <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar mb-2">
+        <button onClick={()=>setActiveCat('all')} className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border ${activeCat==='all'?'bg-slate-800 text-white':'bg-white text-slate-500'}`}>All</button>
+        {Object.entries(categories).map(([k,v])=>(<button key={k} onClick={()=>setActiveCat(k as ItemCategory)} className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border ${activeCat===k?'bg-blue-500 text-white':'bg-white text-slate-500'}`}>{v}</button>))}
+      </div>
+
       <div className="mb-6">
         <button onClick={suggestItems} disabled={isAiLoading} className="w-full py-3 bg-purple-50 text-indigo-700 font-bold rounded-xl flex justify-center gap-2 hover:bg-purple-100">{isAiLoading ? <Loader2 className="animate-spin"/> : <Sparkles/>} Suggest Missing Items</button>
         {aiSuggestions.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{aiSuggestions.map((s, idx) => (<button key={idx} onClick={() => addSuggestion(s)} className="bg-indigo-50 text-indigo-700 text-xs px-3 py-1 rounded-full flex items-center gap-1"><Plus className="w-3 h-3"/> {s}</button>))}</div>}
       </div>
-      <div className="flex gap-2 mb-4"><input className="border rounded-full px-4 py-2 flex-1" value={text} onChange={e=>setText(e.target.value)} placeholder="Add item..."/><button onClick={add} className="bg-blue-600 text-white rounded-full w-10 h-10 flex items-center justify-center"><Plus className="w-5 h-5"/></button></div>
+
+      <div className="bg-white p-3 rounded-xl border mb-6 flex gap-2 items-center">
+         <select className="text-xs p-2 bg-slate-50 rounded border" value={cat} onChange={e=>setCat(e.target.value as ItemCategory)}>
+            {Object.entries(categories).map(([k,v])=><option key={k} value={k}>{v}</option>)}
+         </select>
+         <input className="flex-1 text-sm outline-none" value={text} onChange={e=>setText(e.target.value)} placeholder="Add item..."/><button onClick={add} className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center"><Plus className="w-4 h-4"/></button>
+      </div>
+
       <div className="space-y-4">
-        {['essential','clothing','beauty','electronics','other'].map(c => {
+        {Object.keys(categories).map(c => {
+          if(activeCat!=='all' && activeCat!==c) return null;
           const catItems = items.filter((i:any)=>i.category===c);
-          if(catItems.length===0) return null;
-          return <div key={c}><h3 className="font-bold text-xs uppercase text-slate-400 mb-2">{c}</h3>
+          if(catItems.length===0 && activeCat==='all') return null;
+          return <div key={c}><h3 className="font-bold text-xs uppercase text-slate-400 mb-2">{categories[c as ItemCategory]}</h3>
             {catItems.map((i:any)=>(<div key={i.id} className="flex gap-3 items-center bg-white p-3 rounded-xl border mb-2"><button onClick={()=>onSave(items.map((it:any)=>it.id===i.id?{...it,checked:!it.checked}:it))} className={`w-5 h-5 border rounded flex items-center justify-center ${i.checked?'bg-blue-500 border-blue-500':''}`}>{i.checked&&<CheckSquare className="w-3 h-3 text-white"/>}</button><span className={i.checked?'line-through text-slate-300':'text-slate-700'}>{i.text}</span><button onClick={()=>onSave(items.filter((it:any)=>it.id!==i.id))} className="ml-auto text-slate-200 hover:text-red-400"><Trash2 className="w-4 h-4"/></button></div>))}
           </div>
         })}
@@ -446,10 +445,13 @@ const SpotDetailView = ({ spot, onBack, onUpdate }: { spot: Spot, onBack: () => 
 
 const SpotsView = ({ spots, onSave }: { spots: Spot[], onSave: (s: Spot[]) => void }) => {
   const [form, setForm] = useState(false);
-  const [newS, setNewS] = useState({title:'', description:'', category:'sightseeing'});
+  const [newS, setNewS] = useState({title:'', description:'', category:'sightseeing' as SpotCategory});
+  const [activeCat, setActiveCat] = useState<SpotCategory | 'all'>('all');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiRecs, setAiRecs] = useState<any[]>([]);
   const [selectedSpotId, setSelectedSpotId] = useState<string|null>(null);
+
+  const categories = { sightseeing: {l:'Sightseeing',i:<Camera className="w-3 h-3"/>}, shopping: {l:'Shopping',i:<ShoppingBag className="w-3 h-3"/>}, food: {l:'Food',i:<Heart className="w-3 h-3"/>}, cafe: {l:'Cafe',i:<Coffee className="w-3 h-3"/>}, other: {l:'Other',i:<MapPin className="w-3 h-3"/>} };
 
   const add = () => { if(!newS.title)return; onSave([...spots, {id:Date.now().toString(),...newS, imageColor:'bg-indigo-400',links:[]}]); setForm(false); setNewS({title:'',description:'',category:'sightseeing'}); };
   const recommendSpots = async () => {
@@ -465,15 +467,32 @@ const SpotsView = ({ spots, onSave }: { spots: Spot[], onSave: (s: Spot[]) => vo
   const selectedSpot = spots.find((s:any)=>s.id===selectedSpotId);
   if(selectedSpot) return <SpotDetailView spot={selectedSpot} onBack={()=>setSelectedSpotId(null)} onUpdate={(up:any)=>onSave(spots.map((s:any)=>s.id===up.id?up:s))}/>;
 
+  const filteredSpots = activeCat==='all' ? spots : spots.filter((s:any)=>s.category===activeCat);
+
   return (
     <div className="px-4 pb-20 pt-20">
       <div className="flex justify-between mb-6"><h2 className="font-bold text-xl flex gap-2 items-center"><Heart className="w-5 h-5 text-pink-500"/> Wish List</h2><button onClick={()=>setForm(!form)} className="bg-slate-100 px-3 py-1 rounded-full text-xs font-bold">{form?'Cancel':'+ Add'}</button></div>
+      
+      {/* Filter Tabs */}
+      <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar mb-4">
+        <button onClick={()=>setActiveCat('all')} className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border ${activeCat==='all'?'bg-slate-800 text-white':'bg-white text-slate-500'}`}>All</button>
+        {Object.entries(categories).map(([k,v]:any)=>(<button key={k} onClick={()=>setActiveCat(k)} className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border flex items-center gap-1 ${activeCat===k?'bg-blue-500 text-white':'bg-white text-slate-500'}`}>{v.i} {v.l}</button>))}
+      </div>
+
       <div className="mb-6"><button onClick={recommendSpots} disabled={isAiLoading} className="w-full py-3 bg-orange-50 text-orange-700 font-bold rounded-xl flex justify-center gap-2 hover:bg-orange-100">{isAiLoading ? <Loader2 className="animate-spin"/> : <Sparkles/>} Find New Gems</button>
         {aiRecs.length > 0 && <div className="mt-4 grid gap-3">{aiRecs.map((rec, i) => (<div key={i} className="bg-orange-50 p-3 rounded-xl flex justify-between items-center"><div><div className="text-[10px] font-bold text-orange-400">{rec.category}</div><div className="font-bold text-sm">{rec.title}</div></div><button onClick={() => addRec(rec)} className="bg-white text-orange-500 p-2 rounded-full"><Plus className="w-4 h-4"/></button></div>))}</div>}
       </div>
-      {form && <div className="bg-white p-4 rounded-xl border shadow-lg mb-6"><input className="w-full border rounded p-2 mb-2" placeholder="Name" value={newS.title} onChange={e=>setNewS({...newS,title:e.target.value})}/><textarea className="w-full border rounded p-2 mb-2" placeholder="Memo" value={newS.description} onChange={e=>setNewS({...newS,description:e.target.value})}/><button onClick={add} className="w-full bg-blue-600 text-white font-bold py-2 rounded">Save</button></div>}
-      <div className="grid grid-cols-2 gap-4">{spots.map((s:any) => (
-        <div key={s.id} onClick={()=>setSelectedSpotId(s.id)} className="bg-white rounded-2xl overflow-hidden border shadow-sm relative"><div className={`h-24 ${s.imageColor} flex items-center justify-center`}>{s.category==='food'?<Heart className="text-white/50"/>:<Camera className="text-white/50"/>}</div><div className="p-3"><div className="text-xs font-bold text-blue-500 uppercase">{s.category}</div><div className="font-bold text-sm mb-1">{s.title}</div><div className="text-xs text-slate-500 line-clamp-2">{s.description}</div><button onClick={(e)=>{e.stopPropagation(); onSave(spots.filter((sp:any)=>sp.id!==s.id));}} className="absolute top-2 right-2 bg-black/20 text-white p-1 rounded-full"><X className="w-3 h-3"/></button></div></div>
+      
+      {form && <div className="bg-white p-4 rounded-xl border shadow-lg mb-6">
+        <input className="w-full border rounded p-2 mb-2" placeholder="Name" value={newS.title} onChange={e=>setNewS({...newS,title:e.target.value})}/>
+        <select className="w-full border rounded p-2 mb-2 bg-white" value={newS.category} onChange={e=>setNewS({...newS,category:e.target.value as SpotCategory})}>{Object.entries(categories).map(([k,v]:any)=><option key={k} value={k}>{v.l}</option>)}</select>
+        <textarea className="w-full border rounded p-2 mb-2" placeholder="Memo" value={newS.description} onChange={e=>setNewS({...newS,description:e.target.value})}/><button onClick={add} className="w-full bg-blue-600 text-white font-bold py-2 rounded">Save</button>
+      </div>}
+      
+      <div className="grid grid-cols-2 gap-4">
+        {filteredSpots.length===0 && <div className="col-span-2 text-center text-slate-400 text-sm py-10">No spots found</div>}
+        {filteredSpots.map((s:any) => (
+        <div key={s.id} onClick={()=>setSelectedSpotId(s.id)} className="bg-white rounded-2xl overflow-hidden border shadow-sm relative group cursor-pointer active:scale-95 transition-all"><div className={`h-24 ${s.imageColor} flex items-center justify-center`}>{s.category==='food'||s.category==='cafe'?<Coffee className="text-white/50"/>:<Camera className="text-white/50"/>}</div><div className="p-3"><div className="text-xs font-bold text-blue-500 uppercase">{s.category}</div><div className="font-bold text-sm mb-1">{s.title}</div><div className="text-xs text-slate-500 line-clamp-2">{s.description}</div><button onClick={(e)=>{e.stopPropagation(); onSave(spots.filter((sp:any)=>sp.id!==s.id));}} className="absolute top-2 right-2 bg-black/20 text-white p-1 rounded-full"><X className="w-3 h-3"/></button></div></div>
       ))}</div>
     </div>
   );
@@ -488,7 +507,7 @@ export default function App() {
 
   useEffect(() => {
     // Configチェック
-    if (isFirebaseReady && db) {
+    if (db) {
       setIsSetup(true);
       // データ同期開始
       const unsub = onSnapshot(doc(db, 'trips', TRIP_ID), (docSnap: any) => {
@@ -505,7 +524,7 @@ export default function App() {
   const handleSave = (key: string, val: any) => {
     const newData = { ...data, [key]: val };
     setData(newData); // 即時反映
-    if (isFirebaseReady && db) {
+    if (db) {
       setDoc(doc(db, 'trips', TRIP_ID), { [key]: val }, { merge: true });
     }
   };
