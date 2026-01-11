@@ -11,7 +11,7 @@ import { getAuth, signInAnonymously, onAuthStateChanged, User } from 'firebase/a
 import { getFirestore, doc, onSnapshot, setDoc } from 'firebase/firestore';
 
 // ==========================================
-// ▼ Firebase Configuration (Your Config) ▼
+// ▼ Firebase Configuration (User Config) ▼
 // ==========================================
 const firebaseConfig = {
   apiKey: "AIzaSyBodoPRFxwxjkWOXBdJUVO6W1nkP25ZIno",
@@ -176,12 +176,7 @@ const ExpensesView = ({ expenses, onSave }: { expenses: Expense[], onSave: (e: E
     <div className="px-4 pb-20 pt-20">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2"><Wallet className="w-5 h-5 text-green-600" /> Expenses</h2>
-        <div className="flex items-center gap-2 text-xs bg-slate-100 px-2 py-1 rounded-full">
-           <RefreshCw className="w-3 h-3 text-slate-400" />
-           <span className="text-slate-500 font-bold">1€ =</span>
-           <input type="number" className="w-10 bg-transparent font-bold text-center border-b border-slate-300" value={exchangeRate} onChange={(e) => setExchangeRate(Number(e.target.value))} />
-           <span className="text-slate-500">¥</span>
-        </div>
+        <div className="flex items-center gap-2 text-xs bg-slate-100 px-2 py-1 rounded-full"><RefreshCw className="w-3 h-3 text-slate-400" /><span className="text-slate-500 font-bold">1€ =</span><input type="number" className="w-10 bg-transparent font-bold text-center border-b border-slate-300" value={exchangeRate} onChange={(e) => setExchangeRate(Number(e.target.value))} /><span className="text-slate-500">¥</span></div>
       </div>
       <div className="bg-slate-800 rounded-2xl p-5 text-white shadow-lg mb-6">
         <div className="flex justify-between items-start mb-4 border-b border-slate-600 pb-4">
@@ -189,45 +184,19 @@ const ExpensesView = ({ expenses, onSave }: { expenses: Expense[], onSave: (e: E
            <div className="text-right"><div className="text-slate-400 text-xs uppercase font-bold tracking-wider mb-1">Per Person</div><div className="text-xl font-bold">¥{Math.round(grandTotal/2).toLocaleString()}</div></div>
         </div>
         <div className="bg-slate-900/50 rounded-xl p-3 flex items-center justify-between">
-           <div className="flex items-center gap-3">
-             <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center font-bold text-lg">{balance > 0 ? 'M' : 'Y'}</div>
-             <div><div className="text-xs text-slate-400">Receives</div><div className="font-bold text-green-400 text-lg">¥{Math.round(Math.abs(balance)).toLocaleString()}</div></div>
-           </div>
+           <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center font-bold text-lg">{balance > 0 ? 'M' : 'Y'}</div><div><div className="text-xs text-slate-400">Receives</div><div className="font-bold text-green-400 text-lg">¥{Math.round(Math.abs(balance)).toLocaleString()}</div></div></div>
            <div className="text-right text-xs text-slate-400">From {balance > 0 ? 'Yutaro' : 'Misaki'}</div>
         </div>
       </div>
-      {!isAdding ? (
-        <button onClick={() => setIsAdding(true)} className="w-full py-3 bg-green-50 text-green-600 border border-green-200 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-green-100 mb-6"><Plus className="w-4 h-4" /> Add Expense</button>
-      ) : (
+      {!isAdding ? ( <button onClick={() => setIsAdding(true)} className="w-full py-3 bg-green-50 text-green-600 border border-green-200 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-green-100 mb-6"><Plus className="w-4 h-4" /> Add Expense</button> ) : (
         <div className="bg-white p-4 rounded-xl border-2 border-green-100 shadow-lg mb-6">
-           <div className="grid grid-cols-2 gap-3 mb-3">
-             <input type="text" placeholder="Item Name" className="col-span-2 p-2 border rounded" value={newExpense.title} onChange={e => setNewExpense({...newExpense, title: e.target.value})} autoFocus />
-             <input type="number" placeholder="Amount" className="w-full p-2 border rounded" value={newExpense.amount} onChange={e => setNewExpense({...newExpense, amount: e.target.value as any})} />
-             <select className="p-2 border rounded" value={newExpense.currency} onChange={e => setNewExpense({...newExpense, currency: e.target.value as Currency})}><option value="JPY">JPY</option><option value="EUR">EUR</option></select>
-           </div>
-           <div className="flex gap-2 mb-4">
-             {['Misaki', 'Yutaro'].map((p) => (<button key={p} onClick={() => setNewExpense({...newExpense, payer: p as Payer})} className={`flex-1 py-1 text-xs rounded font-bold border ${newExpense.payer === p ? 'bg-green-500 text-white' : 'bg-white'}`}>{p}</button>))}
-           </div>
-           <div className="flex gap-2 justify-end">
-             <button onClick={() => setIsAdding(false)} className="px-4 py-2 text-xs font-bold text-slate-500 bg-slate-100 rounded-full">Cancel</button>
-             <button onClick={handleAdd} className="px-4 py-2 text-xs font-bold bg-green-600 text-white rounded-full">Save</button>
-           </div>
+           <div className="grid grid-cols-2 gap-3 mb-3"><input type="text" placeholder="Item Name" className="col-span-2 p-2 border rounded" value={newExpense.title} onChange={e => setNewExpense({...newExpense, title: e.target.value})} autoFocus /><input type="number" placeholder="Amount" className="w-full p-2 border rounded" value={newExpense.amount} onChange={e => setNewExpense({...newExpense, amount: e.target.value as any})} /><select className="p-2 border rounded" value={newExpense.currency} onChange={e => setNewExpense({...newExpense, currency: e.target.value as Currency})}><option value="JPY">JPY</option><option value="EUR">EUR</option></select></div>
+           <div className="flex gap-2 mb-4">{['Misaki', 'Yutaro'].map((p) => (<button key={p} onClick={() => setNewExpense({...newExpense, payer: p as Payer})} className={`flex-1 py-1 text-xs rounded font-bold border ${newExpense.payer === p ? 'bg-green-500 text-white' : 'bg-white'}`}>{p}</button>))}</div>
+           <div className="flex gap-2 justify-end"><button onClick={() => setIsAdding(false)} className="px-4 py-2 text-xs font-bold text-slate-500 bg-slate-100 rounded-full">Cancel</button><button onClick={handleAdd} className="px-4 py-2 text-xs font-bold bg-green-600 text-white rounded-full">Save</button></div>
         </div>
       )}
       <div className="space-y-3">
-        {expenses.map(e => (
-          <div key={e.id} className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex justify-between items-center">
-             <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${e.payer === 'Misaki' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'}`}>{e.payer[0]}</div>
-                <div><div className="font-bold text-sm">{e.title}</div><div className="text-xs text-slate-400">{e.method} • {e.date}</div></div>
-             </div>
-             <div className="text-right">
-                <div className="font-bold">{e.currency === 'JPY' ? '¥' : '€'}{e.amount.toLocaleString()}</div>
-                {e.currency === 'EUR' && <div className="text-[10px] text-slate-400">≈ ¥{Math.round(e.amount * exchangeRate).toLocaleString()}</div>}
-             </div>
-             <button onClick={() => onSave(expenses.filter(ex => ex.id !== e.id))} className="text-slate-300 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
-          </div>
-        ))}
+        {expenses.map(e => (<div key={e.id} className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex justify-between items-center"><div className="flex items-center gap-3"><div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${e.payer === 'Misaki' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'}`}>{e.payer[0]}</div><div><div className="font-bold text-sm">{e.title}</div><div className="text-xs text-slate-400">{e.method} • {e.date}</div></div></div><div className="text-right"><div className="font-bold">{e.currency === 'JPY' ? '¥' : '€'}{e.amount.toLocaleString()}</div>{e.currency === 'EUR' && <div className="text-[10px] text-slate-400">≈ ¥{Math.round(e.amount * exchangeRate).toLocaleString()}</div>}</div><button onClick={() => onSave(expenses.filter(ex => ex.id !== e.id))} className="text-slate-300 hover:text-red-400"><Trash2 className="w-4 h-4" /></button></div>))}
       </div>
     </div>
   );
@@ -252,59 +221,13 @@ const DayDetailView = ({ day, allDays, onBack, onUpdate, onMove }: { day: Schedu
   
   return (
     <div className="fixed inset-0 bg-white z-[60] overflow-y-auto animate-in slide-in-from-right">
-      <div className="sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b px-4 py-4 flex justify-between items-center">
-        <div className="flex gap-4 items-center"><button onClick={onBack} className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center"><ArrowLeft className="w-6 h-6"/></button>{!isEditing && <div><div className="text-xs font-bold text-blue-500">{day.date}</div><h2 className="font-bold text-lg">{day.title}</h2></div>}</div>
-        <button onClick={() => isEditing ? handleSave() : setIsEditing(true)} className="px-3 py-1 bg-slate-100 rounded-full text-xs font-bold flex gap-1 items-center">{isEditing ? <><Save className="w-3 h-3"/> Done</> : <><Edit2 className="w-3 h-3"/> Edit</>}</button>
-      </div>
+      <div className="sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b px-4 py-4 flex justify-between items-center"><div className="flex gap-4 items-center"><button onClick={onBack} className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center"><ArrowLeft className="w-6 h-6"/></button>{!isEditing && <div><div className="text-xs font-bold text-blue-500">{day.date}</div><h2 className="font-bold text-lg">{day.title}</h2></div>}</div><button onClick={() => isEditing ? handleSave() : setIsEditing(true)} className="px-3 py-1 bg-slate-100 rounded-full text-xs font-bold flex gap-1 items-center">{isEditing ? <><Save className="w-3 h-3"/> Done</> : <><Edit2 className="w-3 h-3"/> Edit</>}</button></div>
       <div className="p-6">
         {isEditing ? (
-          <div className="space-y-4">
-             <input className="w-full p-2 border rounded font-bold" value={editTitle} onChange={e => setEditTitle(e.target.value)} />
-             <textarea className="w-full p-2 border rounded" rows={3} value={editContent} onChange={e => setEditContent(e.target.value)} />
-             <div className="flex gap-2 overflow-x-auto">
-               {['plane', 'map', 'shopping', 'luggage', 'sun', 'camera', 'coffee', 'heart'].map((icon: any) => (
-                 <button key={icon} onClick={() => setEditIcon(icon)} className={`p-2 border rounded-full ${editIcon === icon ? 'bg-blue-500 text-white' : ''}`}>{icon}</button>
-               ))}
-             </div>
-             {!isMoving ? (
-               <button onClick={() => setIsMoving(true)} className="w-full py-2 bg-indigo-50 text-indigo-600 font-bold rounded flex justify-center gap-2"><ArrowRightLeft className="w-4 h-4"/> Change Date</button>
-             ) : (
-               <div className="bg-indigo-50 p-3 rounded">
-                 <div className="text-xs font-bold text-indigo-900 mb-2">Swap with...</div>
-                 <div className="grid grid-cols-2 gap-2">{allDays.filter(d => d.id !== day.id).map(d => (<button key={d.id} onClick={() => { onMove(d.id); setIsMoving(false); setIsEditing(false); }} className="bg-white p-2 rounded border text-xs text-left">{d.date} {d.title}</button>))}</div>
-               </div>
-             )}
-          </div>
-        ) : (
-          <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-8 text-sm text-blue-800">{day.content}</div>
-        )}
-        <div className="border-l-2 border-slate-100 ml-3 space-y-6 pb-10">
-          {day.events.map(e => (
-            <div key={e.id} className="pl-8 relative">
-              <div className="absolute -left-[7px] top-1.5 w-3.5 h-3.5 bg-blue-500 rounded-full border-2 border-white"/>
-              <div className="bg-white p-3 rounded-xl border shadow-sm">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="font-bold text-blue-600 flex items-center gap-2">{e.time} <span className="text-slate-800">{e.title}</span></div>
-                    {e.description && <div className="text-sm text-slate-500 mt-1 whitespace-pre-wrap">{e.description}</div>}
-                    {e.link && <a href={e.link} target="_blank" rel="noreferrer" className="text-xs bg-slate-50 px-2 py-1 rounded inline-flex items-center gap-1 mt-2 text-blue-500"><ExternalLink className="w-3 h-3"/> Link</a>}
-                  </div>
-                  {isEditing && <button onClick={() => handleDeleteEvent(e.id)} className="text-slate-300 hover:text-red-400"><Trash2 className="w-4 h-4"/></button>}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-        {!isAddingEvent ? (
-          <button onClick={() => setIsAddingEvent(true)} className="w-full py-3 border-dashed border rounded-xl text-slate-500 text-sm font-bold flex justify-center gap-2"><Plus className="w-4 h-4"/> Add Plan</button>
-        ) : (
-           <div className="bg-white p-4 rounded border shadow-lg">
-             <div className="flex gap-2 mb-2"><input type="time" className="border rounded p-1" value={newEvent.time} onChange={e=>setNewEvent({...newEvent, time:e.target.value})}/><input className="border rounded p-1 flex-1" placeholder="Title" value={newEvent.title} onChange={e=>setNewEvent({...newEvent, title:e.target.value})}/></div>
-             <textarea className="w-full border rounded p-1 mb-2" placeholder="Details" value={newEvent.description} onChange={e=>setNewEvent({...newEvent, description:e.target.value})}/>
-             <input className="w-full border rounded p-1 mb-2" placeholder="Link URL" value={newEvent.link} onChange={e=>setNewEvent({...newEvent, link:e.target.value})}/>
-             <div className="flex justify-end gap-2"><button onClick={()=>setIsAddingEvent(false)} className="text-xs font-bold text-slate-400">Cancel</button><button onClick={handleAdd} className="text-xs font-bold bg-blue-600 text-white px-3 py-1 rounded">Add</button></div>
-           </div>
-        )}
+          <div className="space-y-4"><input className="w-full p-2 border rounded font-bold" value={editTitle} onChange={e => setEditTitle(e.target.value)} /><textarea className="w-full p-2 border rounded" rows={3} value={editContent} onChange={e => setEditContent(e.target.value)} /><div className="flex gap-2 overflow-x-auto">{['plane', 'map', 'shopping', 'luggage', 'sun', 'camera', 'coffee', 'heart'].map((icon: any) => (<button key={icon} onClick={() => setEditIcon(icon)} className={`p-2 border rounded-full ${editIcon === icon ? 'bg-blue-500 text-white' : ''}`}>{icon}</button>))}</div>{!isMoving ? (<button onClick={() => setIsMoving(true)} className="w-full py-2 bg-indigo-50 text-indigo-600 font-bold rounded flex justify-center gap-2"><ArrowRightLeft className="w-4 h-4"/> Change Date</button>) : (<div className="bg-indigo-50 p-3 rounded"><div className="text-xs font-bold text-indigo-900 mb-2">Swap with...</div><div className="grid grid-cols-2 gap-2">{allDays.filter(d => d.id !== day.id).map(d => (<button key={d.id} onClick={() => { onMove(d.id); setIsMoving(false); setIsEditing(false); }} className="bg-white p-2 rounded border text-xs text-left">{d.date} {d.title}</button>))}</div></div>)}</div>
+        ) : (<div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-8 text-sm text-blue-800">{day.content}</div>)}
+        <div className="border-l-2 border-slate-100 ml-3 space-y-6 pb-10">{day.events.map(e => (<div key={e.id} className="pl-8 relative"><div className="absolute -left-[7px] top-1.5 w-3.5 h-3.5 bg-blue-500 rounded-full border-2 border-white"/><div className="bg-white p-3 rounded-xl border shadow-sm"><div className="flex justify-between items-start"><div className="flex-1"><div className="font-bold text-blue-600 flex items-center gap-2">{e.time} <span className="text-slate-800">{e.title}</span></div>{e.description && <div className="text-sm text-slate-500 mt-1 whitespace-pre-wrap">{e.description}</div>}{e.link && <a href={e.link} target="_blank" rel="noreferrer" className="text-xs bg-slate-50 px-2 py-1 rounded inline-flex items-center gap-1 mt-2 text-blue-500"><ExternalLink className="w-3 h-3"/> Link</a>}</div>{isEditing && <button onClick={() => handleDeleteEvent(e.id)} className="text-slate-300 hover:text-red-400"><Trash2 className="w-4 h-4"/></button>}</div></div></div>))}</div>
+        {!isAddingEvent ? (<button onClick={() => setIsAddingEvent(true)} className="w-full py-3 border-dashed border rounded-xl text-slate-500 text-sm font-bold flex justify-center gap-2"><Plus className="w-4 h-4"/> Add Plan</button>) : ( <div className="bg-white p-4 rounded border shadow-lg"><div className="flex gap-2 mb-2"><input type="time" className="border rounded p-1" value={newEvent.time} onChange={e=>setNewEvent({...newEvent, time:e.target.value})}/><input className="border rounded p-1 flex-1" placeholder="Title" value={newEvent.title} onChange={e=>setNewEvent({...newEvent, title:e.target.value})}/></div><textarea className="w-full border rounded p-1 mb-2" placeholder="Details" value={newEvent.description} onChange={e=>setNewEvent({...newEvent, description:e.target.value})}/><input className="w-full border rounded p-1 mb-2" placeholder="Link URL" value={newEvent.link} onChange={e=>setNewEvent({...newEvent, link:e.target.value})}/><div className="flex justify-end gap-2"><button onClick={()=>setIsAddingEvent(false)} className="text-xs font-bold text-slate-400">Cancel</button><button onClick={handleAdd} className="text-xs font-bold bg-blue-600 text-white px-3 py-1 rounded">Add</button></div></div>)}
       </div>
     </div>
   );
@@ -322,8 +245,7 @@ const ScheduleView = ({ schedule, onSave }: { schedule: ScheduleDay[], onSave: (
     const contentT = { title: newSched[tIdx].title, icon: newSched[tIdx].iconType, content: newSched[tIdx].content, events: newSched[tIdx].events };
     newSched[sIdx] = { ...newSched[sIdx], title: contentT.title, iconType: contentT.icon, content: contentT.content, events: contentT.events };
     newSched[tIdx] = { ...newSched[tIdx], title: contentS.title, iconType: contentS.icon, content: contentS.content, events: contentS.events };
-    onSave(newSched);
-    setSelectedId(targetId);
+    onSave(newSched); setSelectedId(targetId);
   };
   const selectedDay = schedule.find(d => d.id === selectedId);
   if(selectedId && selectedDay) return <DayDetailView day={selectedDay} allDays={schedule} onBack={()=>setSelectedId(null)} onUpdate={(d)=>onSave(schedule.map(c=>c.id===d.id?d:c))} onMove={handleMove}/>;
@@ -331,21 +253,7 @@ const ScheduleView = ({ schedule, onSave }: { schedule: ScheduleDay[], onSave: (
   return (
     <div className="px-4 pb-20 pt-20">
       <h2 className="text-xl font-bold mb-6 flex items-center gap-2"><Calendar className="w-5 h-5 text-blue-500"/> Itinerary</h2>
-      <div className="border-l-2 border-blue-100 ml-3 space-y-6">
-        {schedule.map(d => (
-          <div key={d.id} className="relative pl-8 cursor-pointer group" onClick={()=>setSelectedId(d.id)}>
-             <div className="absolute -left-[9px] top-0 w-4 h-4 bg-blue-500 rounded-full border-4 border-white shadow-sm group-hover:scale-110 transition-transform"/>
-             <div className="text-blue-900 font-bold mb-1">{d.date} <span className="text-xs text-blue-400">{d.dayOfWeek}</span></div>
-             <div className="bg-white p-4 rounded-xl border hover:border-blue-300 shadow-sm transition-all">
-                <div className="flex justify-between items-start">
-                   <div><div className="font-bold text-slate-800 mb-1">{d.title}</div><div className="text-sm text-slate-500 line-clamp-2">{d.content}</div></div>
-                   <ChevronRight className="w-5 h-5 text-slate-300"/>
-                </div>
-                {d.events.length > 0 && <div className="mt-3 pt-2 border-t flex gap-2 overflow-hidden">{d.events.slice(0,3).map(e=><span key={e.id} className="text-[10px] bg-slate-50 px-2 py-1 rounded text-slate-500">{e.time} {e.title}</span>)}</div>}
-             </div>
-          </div>
-        ))}
-      </div>
+      <div className="border-l-2 border-blue-100 ml-3 space-y-6">{schedule.map(d => (<div key={d.id} className="relative pl-8 cursor-pointer group" onClick={()=>setSelectedId(d.id)}><div className="absolute -left-[9px] top-0 w-4 h-4 bg-blue-500 rounded-full border-4 border-white shadow-sm group-hover:scale-110 transition-transform"/><div className="text-blue-900 font-bold mb-1">{d.date} <span className="text-xs text-blue-400">{d.dayOfWeek}</span></div><div className="bg-white p-4 rounded-xl border hover:border-blue-300 shadow-sm transition-all"><div className="flex justify-between items-start"><div><div className="font-bold text-slate-800 mb-1">{d.title}</div><div className="text-sm text-slate-500 line-clamp-2">{d.content}</div></div><ChevronRight className="w-5 h-5 text-slate-300"/></div>{d.events.length > 0 && <div className="mt-3 pt-2 border-t flex gap-2 overflow-hidden">{d.events.slice(0,3).map(e=><span key={e.id} className="text-[10px] bg-slate-50 px-2 py-1 rounded text-slate-500">{e.time} {e.title}</span>)}</div>}</div></div>))}</div>
     </div>
   );
 };
@@ -367,41 +275,15 @@ const PackingView = ({ items, onSave }: { items: PackingItem[], onSave: (i: Pack
     setIsAiLoading(false);
   };
   const addSuggestion = (s: string) => { onSave([...items, {id: Date.now().toString(), text: s, checked: false, category: 'other'}]); setAiSuggestions(aiSuggestions.filter(item => item !== s)); };
-
   const categories = { essential: 'Essentials', clothing: 'Clothing', beauty: 'Beauty', electronics: 'Gadgets', other: 'Others' };
 
   return (
     <div className="px-4 pb-20 pt-20">
       <div className="bg-gradient-to-r from-blue-500 to-cyan-400 p-6 rounded-2xl text-white mb-6 shadow-lg"><h2 className="font-bold text-xl">Packing List</h2><div className="text-right font-bold text-2xl">{items.length>0?Math.round((items.filter((i:any)=>i.checked).length/items.length)*100):0}%</div></div>
-      
-      {/* Filter Tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar mb-2">
-        <button onClick={()=>setActiveCat('all')} className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border ${activeCat==='all'?'bg-slate-800 text-white':'bg-white text-slate-500'}`}>All</button>
-        {Object.entries(categories).map(([k,v])=>(<button key={k} onClick={()=>setActiveCat(k as ItemCategory)} className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border ${activeCat===k?'bg-blue-500 text-white':'bg-white text-slate-500'}`}>{v}</button>))}
-      </div>
-
-      <div className="mb-6">
-        <button onClick={suggestItems} disabled={isAiLoading} className="w-full py-3 bg-purple-50 text-indigo-700 font-bold rounded-xl flex justify-center gap-2 hover:bg-purple-100">{isAiLoading ? <Loader2 className="animate-spin"/> : <Sparkles/>} Suggest Missing Items</button>
-        {aiSuggestions.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{aiSuggestions.map((s, idx) => (<button key={idx} onClick={() => addSuggestion(s)} className="bg-indigo-50 text-indigo-700 text-xs px-3 py-1 rounded-full flex items-center gap-1"><Plus className="w-3 h-3"/> {s}</button>))}</div>}
-      </div>
-
-      <div className="bg-white p-3 rounded-xl border mb-6 flex gap-2 items-center">
-         <select className="text-xs p-2 bg-slate-50 rounded border" value={cat} onChange={e=>setCat(e.target.value as ItemCategory)}>
-            {Object.entries(categories).map(([k,v])=><option key={k} value={k}>{v}</option>)}
-         </select>
-         <input className="flex-1 text-sm outline-none" value={text} onChange={e=>setText(e.target.value)} placeholder="Add item..."/><button onClick={add} className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center"><Plus className="w-4 h-4"/></button>
-      </div>
-
-      <div className="space-y-4">
-        {Object.keys(categories).map(c => {
-          if(activeCat!=='all' && activeCat!==c) return null;
-          const catItems = items.filter((i:any)=>i.category===c);
-          if(catItems.length===0 && activeCat==='all') return null;
-          return <div key={c}><h3 className="font-bold text-xs uppercase text-slate-400 mb-2">{categories[c as ItemCategory]}</h3>
-            {catItems.map((i:any)=>(<div key={i.id} className="flex gap-3 items-center bg-white p-3 rounded-xl border mb-2"><button onClick={()=>onSave(items.map((it:any)=>it.id===i.id?{...it,checked:!it.checked}:it))} className={`w-5 h-5 border rounded flex items-center justify-center ${i.checked?'bg-blue-500 border-blue-500':''}`}>{i.checked&&<CheckSquare className="w-3 h-3 text-white"/>}</button><span className={i.checked?'line-through text-slate-300':'text-slate-700'}>{i.text}</span><button onClick={()=>onSave(items.filter((it:any)=>it.id!==i.id))} className="ml-auto text-slate-200 hover:text-red-400"><Trash2 className="w-4 h-4"/></button></div>))}
-          </div>
-        })}
-      </div>
+      <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar mb-2"><button onClick={()=>setActiveCat('all')} className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border ${activeCat==='all'?'bg-slate-800 text-white':'bg-white text-slate-500'}`}>All</button>{Object.entries(categories).map(([k,v])=>(<button key={k} onClick={()=>setActiveCat(k as ItemCategory)} className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border ${activeCat===k?'bg-blue-500 text-white':'bg-white text-slate-500'}`}>{v}</button>))}</div>
+      <div className="mb-6"><button onClick={suggestItems} disabled={isAiLoading} className="w-full py-3 bg-purple-50 text-indigo-700 font-bold rounded-xl flex justify-center gap-2 hover:bg-purple-100">{isAiLoading ? <Loader2 className="animate-spin"/> : <Sparkles/>} Suggest Missing Items</button>{aiSuggestions.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{aiSuggestions.map((s, idx) => (<button key={idx} onClick={() => addSuggestion(s)} className="bg-indigo-50 text-indigo-700 text-xs px-3 py-1 rounded-full flex items-center gap-1"><Plus className="w-3 h-3"/> {s}</button>))}</div>}</div>
+      <div className="bg-white p-3 rounded-xl border mb-6 flex gap-2 items-center"><select className="text-xs p-2 bg-slate-50 rounded border" value={cat} onChange={e=>setCat(e.target.value as ItemCategory)}>{Object.entries(categories).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select><input className="flex-1 text-sm outline-none" value={text} onChange={e=>setText(e.target.value)} placeholder="Add item..."/><button onClick={add} className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center"><Plus className="w-4 h-4"/></button></div>
+      <div className="space-y-4">{Object.keys(categories).map(c => { if(activeCat!=='all' && activeCat!==c) return null; const catItems = items.filter((i:any)=>i.category===c); if(catItems.length===0 && activeCat==='all') return null; return <div key={c}><h3 className="font-bold text-xs uppercase text-slate-400 mb-2">{categories[c as ItemCategory]}</h3>{catItems.length===0 ? <div className="text-xs text-slate-300 italic">No items</div> : catItems.map((i:any)=>(<div key={i.id} className="flex gap-3 items-center bg-white p-3 rounded-xl border mb-2"><button onClick={()=>onSave(items.map((it:any)=>it.id===i.id?{...it,checked:!it.checked}:it))} className={`w-5 h-5 border rounded flex items-center justify-center ${i.checked?'bg-blue-500 border-blue-500':''}`}>{i.checked&&<CheckSquare className="w-3 h-3 text-white"/>}</button><span className={i.checked?'line-through text-slate-300':'text-slate-700'}>{i.text}</span><button onClick={()=>onSave(items.filter((it:any)=>it.id!==i.id))} className="ml-auto text-slate-200 hover:text-red-400"><Trash2 className="w-4 h-4"/></button></div>))}</div>})}</div>
     </div>
   );
 };
@@ -412,34 +294,11 @@ const SpotDetailView = ({ spot, onBack, onUpdate }: { spot: Spot, onBack: () => 
   const [isAddingLink, setIsAddingLink] = useState(false);
   const [description, setDescription] = useState(spot.description);
 
-  const handleAddLink = () => {
-    if (!newLinkUrl) return;
-    onUpdate({ ...spot, links: [...spot.links, { id: Date.now().toString(), title: newLinkTitle || 'Link', url: newLinkUrl }] });
-    setNewLinkTitle(''); setNewLinkUrl(''); setIsAddingLink(false);
-  };
+  const handleAddLink = () => { if (!newLinkUrl) return; onUpdate({ ...spot, links: [...spot.links, { id: Date.now().toString(), title: newLinkTitle || 'Link', url: newLinkUrl }] }); setNewLinkTitle(''); setNewLinkUrl(''); setIsAddingLink(false); };
   const handleDeleteLink = (id: string) => onUpdate({ ...spot, links: spot.links.filter(l => l.id !== id) });
   
   return (
-    <div className="fixed inset-0 bg-white z-[60] overflow-y-auto animate-in slide-in-from-right">
-      <div className={`h-48 ${spot.imageColor} relative`}>
-        <button onClick={onBack} className="absolute top-4 left-4 w-10 h-10 bg-black/20 text-white rounded-full flex items-center justify-center"><ArrowLeft className="w-6 h-6"/></button>
-        <div className="absolute bottom-6 left-6 text-white"><div className="text-xs font-bold uppercase mb-1 bg-white/20 inline-block px-2 rounded">{spot.category}</div><h2 className="text-3xl font-bold">{spot.title}</h2></div>
-      </div>
-      <div className="p-6">
-        <textarea className="w-full p-3 bg-slate-50 rounded-xl mb-6" rows={4} value={description} onChange={e=>setDescription(e.target.value)} onBlur={()=>onUpdate({...spot,description})} placeholder="Memo..."/>
-        <div className="mb-4 text-sm font-bold text-slate-400 uppercase flex items-center gap-2"><LinkIcon className="w-4 h-4"/> Links</div>
-        <div className="space-y-2 mb-4">
-          {spot.links.map(l => (<div key={l.id} className="flex items-center gap-3 p-3 border rounded-xl"><Globe className="w-4 h-4 text-blue-500"/><div className="flex-1 text-sm font-bold">{l.title}</div><a href={l.url} target="_blank" rel="noreferrer" className="text-blue-500"><ExternalLink className="w-4 h-4"/></a><button onClick={()=>handleDeleteLink(l.id)} className="text-slate-300"><Trash2 className="w-4 h-4"/></button></div>))}
-        </div>
-        {isAddingLink ? (
-          <div className="bg-slate-50 p-4 rounded-xl">
-            <input className="w-full p-2 mb-2 border rounded text-sm" placeholder="Title" value={newLinkTitle} onChange={e=>setNewLinkTitle(e.target.value)}/>
-            <input className="w-full p-2 mb-2 border rounded text-sm" placeholder="URL" value={newLinkUrl} onChange={e=>setNewLinkUrl(e.target.value)}/>
-            <div className="flex justify-end gap-2"><button onClick={()=>setIsAddingLink(false)} className="text-xs">Cancel</button><button onClick={handleAddLink} className="text-xs font-bold bg-blue-600 text-white px-3 py-1 rounded">Add</button></div>
-          </div>
-        ) : <button onClick={()=>setIsAddingLink(true)} className="w-full py-3 border-dashed border rounded-xl text-slate-500 text-sm font-bold flex justify-center gap-2"><Plus className="w-4 h-4"/> Add Link</button>}
-      </div>
-    </div>
+    <div className="fixed inset-0 bg-white z-[60] overflow-y-auto animate-in slide-in-from-right"><div className={`h-48 ${spot.imageColor} relative`}><button onClick={onBack} className="absolute top-4 left-4 w-10 h-10 bg-black/20 text-white rounded-full flex items-center justify-center"><ArrowLeft className="w-6 h-6"/></button><div className="absolute bottom-6 left-6 text-white"><div className="text-xs font-bold uppercase mb-1 bg-white/20 inline-block px-2 rounded">{spot.category}</div><h2 className="text-3xl font-bold">{spot.title}</h2></div></div><div className="p-6"><textarea className="w-full p-3 bg-slate-50 rounded-xl mb-6" rows={4} value={description} onChange={e=>setDescription(e.target.value)} onBlur={()=>onUpdate({...spot,description})} placeholder="Memo..."/><div className="mb-4 text-sm font-bold text-slate-400 uppercase flex items-center gap-2"><LinkIcon className="w-4 h-4"/> Links</div><div className="space-y-2 mb-4">{spot.links.map(l => (<div key={l.id} className="flex items-center gap-3 p-3 border rounded-xl"><Globe className="w-4 h-4 text-blue-500"/><div className="flex-1 text-sm font-bold">{l.title}</div><a href={l.url} target="_blank" rel="noreferrer" className="text-blue-500"><ExternalLink className="w-4 h-4"/></a><button onClick={()=>handleDeleteLink(l.id)} className="text-slate-300"><Trash2 className="w-4 h-4"/></button></div>))}</div>{isAddingLink ? (<div className="bg-slate-50 p-4 rounded-xl"><input className="w-full p-2 mb-2 border rounded text-sm" placeholder="Title" value={newLinkTitle} onChange={e=>setNewLinkTitle(e.target.value)}/><input className="w-full p-2 mb-2 border rounded text-sm" placeholder="URL" value={newLinkUrl} onChange={e=>setNewLinkUrl(e.target.value)}/><div className="flex justify-end gap-2"><button onClick={()=>setIsAddingLink(false)} className="text-xs">Cancel</button><button onClick={handleAddLink} className="text-xs font-bold bg-blue-600 text-white px-3 py-1 rounded">Add</button></div></div>) : <button onClick={()=>setIsAddingLink(true)} className="w-full py-3 border-dashed border rounded-xl text-slate-500 text-sm font-bold flex justify-center gap-2"><Plus className="w-4 h-4"/> Add Link</button>}</div></div>
   );
 };
 
@@ -450,55 +309,27 @@ const SpotsView = ({ spots, onSave }: { spots: Spot[], onSave: (s: Spot[]) => vo
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiRecs, setAiRecs] = useState<any[]>([]);
   const [selectedSpotId, setSelectedSpotId] = useState<string|null>(null);
-
   const categories = { sightseeing: {l:'Sightseeing',i:<Camera className="w-3 h-3"/>}, shopping: {l:'Shopping',i:<ShoppingBag className="w-3 h-3"/>}, food: {l:'Food',i:<Heart className="w-3 h-3"/>}, cafe: {l:'Cafe',i:<Coffee className="w-3 h-3"/>}, other: {l:'Other',i:<MapPin className="w-3 h-3"/>} };
 
   const add = () => { if(!newS.title)return; onSave([...spots, {id:Date.now().toString(),...newS, imageColor:'bg-indigo-400',links:[]}]); setForm(false); setNewS({title:'',description:'',category:'sightseeing'}); };
   const recommendSpots = async () => {
-    setIsAiLoading(true);
-    const current = spots.map((s:any) => s.title).join(", ");
-    const prompt = `Likes: ${current}. Suggest 3 NEW Helsinki spots. Return JSON array [{title, description, category}]. No markdown.`;
-    const res = await callGemini(prompt);
-    try { setAiRecs(JSON.parse(res.replace(/```json|```/g, '').trim())); } catch(e) {}
-    setIsAiLoading(false);
+    setIsAiLoading(true); const current = spots.map((s:any) => s.title).join(", "); const prompt = `Likes: ${current}. Suggest 3 NEW Helsinki spots. Return JSON array [{title, description, category}]. No markdown.`; const res = await callGemini(prompt); try { setAiRecs(JSON.parse(res.replace(/```json|```/g, '').trim())); } catch(e) {} setIsAiLoading(false);
   };
   const addRec = (rec: any) => { onSave([...spots, {id:Date.now().toString(), title: rec.title, description: rec.description, category: rec.category, imageColor:'bg-pink-400', links:[]}]); setAiRecs(aiRecs.filter(r => r.title !== rec.title)); };
-  
   const selectedSpot = spots.find((s:any)=>s.id===selectedSpotId);
   if(selectedSpot) return <SpotDetailView spot={selectedSpot} onBack={()=>setSelectedSpotId(null)} onUpdate={(up:any)=>onSave(spots.map((s:any)=>s.id===up.id?up:s))}/>;
-
   const filteredSpots = activeCat==='all' ? spots : spots.filter((s:any)=>s.category===activeCat);
 
   return (
     <div className="px-4 pb-20 pt-20">
       <div className="flex justify-between mb-6"><h2 className="font-bold text-xl flex gap-2 items-center"><Heart className="w-5 h-5 text-pink-500"/> Wish List</h2><button onClick={()=>setForm(!form)} className="bg-slate-100 px-3 py-1 rounded-full text-xs font-bold">{form?'Cancel':'+ Add'}</button></div>
-      
-      {/* Filter Tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar mb-4">
-        <button onClick={()=>setActiveCat('all')} className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border ${activeCat==='all'?'bg-slate-800 text-white':'bg-white text-slate-500'}`}>All</button>
-        {Object.entries(categories).map(([k,v]:any)=>(<button key={k} onClick={()=>setActiveCat(k)} className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border flex items-center gap-1 ${activeCat===k?'bg-blue-500 text-white':'bg-white text-slate-500'}`}>{v.i} {v.l}</button>))}
-      </div>
-
-      <div className="mb-6"><button onClick={recommendSpots} disabled={isAiLoading} className="w-full py-3 bg-orange-50 text-orange-700 font-bold rounded-xl flex justify-center gap-2 hover:bg-orange-100">{isAiLoading ? <Loader2 className="animate-spin"/> : <Sparkles/>} Find New Gems</button>
-        {aiRecs.length > 0 && <div className="mt-4 grid gap-3">{aiRecs.map((rec, i) => (<div key={i} className="bg-orange-50 p-3 rounded-xl flex justify-between items-center"><div><div className="text-[10px] font-bold text-orange-400">{rec.category}</div><div className="font-bold text-sm">{rec.title}</div></div><button onClick={() => addRec(rec)} className="bg-white text-orange-500 p-2 rounded-full"><Plus className="w-4 h-4"/></button></div>))}</div>}
-      </div>
-      
-      {form && <div className="bg-white p-4 rounded-xl border shadow-lg mb-6">
-        <input className="w-full border rounded p-2 mb-2" placeholder="Name" value={newS.title} onChange={e=>setNewS({...newS,title:e.target.value})}/>
-        <select className="w-full border rounded p-2 mb-2 bg-white" value={newS.category} onChange={e=>setNewS({...newS,category:e.target.value as SpotCategory})}>{Object.entries(categories).map(([k,v]:any)=><option key={k} value={k}>{v.l}</option>)}</select>
-        <textarea className="w-full border rounded p-2 mb-2" placeholder="Memo" value={newS.description} onChange={e=>setNewS({...newS,description:e.target.value})}/><button onClick={add} className="w-full bg-blue-600 text-white font-bold py-2 rounded">Save</button>
-      </div>}
-      
-      <div className="grid grid-cols-2 gap-4">
-        {filteredSpots.length===0 && <div className="col-span-2 text-center text-slate-400 text-sm py-10">No spots found</div>}
-        {filteredSpots.map((s:any) => (
-        <div key={s.id} onClick={()=>setSelectedSpotId(s.id)} className="bg-white rounded-2xl overflow-hidden border shadow-sm relative group cursor-pointer active:scale-95 transition-all"><div className={`h-24 ${s.imageColor} flex items-center justify-center`}>{s.category==='food'||s.category==='cafe'?<Coffee className="text-white/50"/>:<Camera className="text-white/50"/>}</div><div className="p-3"><div className="text-xs font-bold text-blue-500 uppercase">{s.category}</div><div className="font-bold text-sm mb-1">{s.title}</div><div className="text-xs text-slate-500 line-clamp-2">{s.description}</div><button onClick={(e)=>{e.stopPropagation(); onSave(spots.filter((sp:any)=>sp.id!==s.id));}} className="absolute top-2 right-2 bg-black/20 text-white p-1 rounded-full"><X className="w-3 h-3"/></button></div></div>
-      ))}</div>
+      <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar mb-4"><button onClick={()=>setActiveCat('all')} className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border ${activeCat==='all'?'bg-slate-800 text-white':'bg-white text-slate-500'}`}>All</button>{Object.entries(categories).map(([k,v]:any)=>(<button key={k} onClick={()=>setActiveCat(k)} className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border flex items-center gap-1 ${activeCat===k?'bg-blue-500 text-white':'bg-white text-slate-500'}`}>{v.i} {v.l}</button>))}</div>
+      <div className="mb-6"><button onClick={recommendSpots} disabled={isAiLoading} className="w-full py-3 bg-orange-50 text-orange-700 font-bold rounded-xl flex justify-center gap-2 hover:bg-orange-100">{isAiLoading ? <Loader2 className="animate-spin"/> : <Sparkles/>} Find New Gems</button>{aiRecs.length > 0 && <div className="mt-4 grid gap-3">{aiRecs.map((rec, i) => (<div key={i} className="bg-orange-50 p-3 rounded-xl flex justify-between items-center"><div><div className="text-[10px] font-bold text-orange-400">{rec.category}</div><div className="font-bold text-sm">{rec.title}</div></div><button onClick={() => addRec(rec)} className="bg-white text-orange-500 p-2 rounded-full"><Plus className="w-4 h-4"/></button></div>))}</div>}</div>
+      {form && <div className="bg-white p-4 rounded-xl border shadow-lg mb-6"><input className="w-full border rounded p-2 mb-2" placeholder="Name" value={newS.title} onChange={e=>setNewS({...newS,title:e.target.value})}/><select className="w-full border rounded p-2 mb-2 bg-white" value={newS.category} onChange={e=>setNewS({...newS,category:e.target.value as SpotCategory})}>{Object.entries(categories).map(([k,v]:any)=><option key={k} value={k}>{v.l}</option>)}</select><textarea className="w-full border rounded p-2 mb-2" placeholder="Memo" value={newS.description} onChange={e=>setNewS({...newS,description:e.target.value})}/><button onClick={add} className="w-full bg-blue-600 text-white font-bold py-2 rounded">Save</button></div>}
+      <div className="grid grid-cols-2 gap-4">{filteredSpots.length===0 && <div className="col-span-2 text-center text-slate-400 text-sm py-10">No spots found</div>}{filteredSpots.map((s:any) => (<div key={s.id} onClick={()=>setSelectedSpotId(s.id)} className="bg-white rounded-2xl overflow-hidden border shadow-sm relative group cursor-pointer active:scale-95 transition-all"><div className={`h-24 ${s.imageColor} flex items-center justify-center`}>{s.category==='food'||s.category==='cafe'?<Coffee className="text-white/50"/>:<Camera className="text-white/50"/>}</div><div className="p-3"><div className="text-xs font-bold text-blue-500 uppercase">{s.category}</div><div className="font-bold text-sm mb-1">{s.title}</div><div className="text-xs text-slate-500 line-clamp-2">{s.description}</div><button onClick={(e)=>{e.stopPropagation(); onSave(spots.filter((sp:any)=>sp.id!==s.id));}} className="absolute top-2 right-2 bg-black/20 text-white p-1 rounded-full"><X className="w-3 h-3"/></button></div></div>))}</div>
     </div>
   );
 };
-
-// --- Main App ---
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('home');
@@ -506,44 +337,13 @@ export default function App() {
   const [isSetup, setIsSetup] = useState(false);
 
   useEffect(() => {
-    // Configチェック
     if (db) {
       setIsSetup(true);
-      // データ同期開始
-      const unsub = onSnapshot(doc(db, 'trips', TRIP_ID), (docSnap: any) => {
-        if (docSnap.exists()) {
-          setData(docSnap.data());
-        } else {
-          setDoc(doc(db, 'trips', TRIP_ID), INITIAL_DATA);
-        }
-      });
+      const unsub = onSnapshot(doc(db, 'trips', TRIP_ID), (docSnap: any) => { if (docSnap.exists()) setData(docSnap.data()); else setDoc(doc(db, 'trips', TRIP_ID), INITIAL_DATA); });
       return () => unsub();
     }
   }, []);
-
-  const handleSave = (key: string, val: any) => {
-    const newData = { ...data, [key]: val };
-    setData(newData); // 即時反映
-    if (db) {
-      setDoc(doc(db, 'trips', TRIP_ID), { [key]: val }, { merge: true });
-    }
-  };
-
-  if (!isSetup) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
-        <div className="bg-white p-6 rounded-2xl shadow-lg max-w-sm w-full text-center">
-          <div className="flex justify-center mb-4"><AlertCircle className="w-10 h-10 text-amber-500"/></div>
-          <h2 className="text-lg font-bold text-slate-800 mb-2">Setup Required</h2>
-          <p className="text-sm text-slate-600 mb-4">
-            同期機能を使うにはFirebaseの設定が必要です。<br/>
-            <code>App.tsx</code> の <code>firebaseConfig</code> を書き換えてください。
-          </p>
-        </div>
-      </div>
-    );
-  }
-
+  const handleSave = (key: string, val: any) => { const newData = { ...data, [key]: val }; setData(newData); if (db) setDoc(doc(db, 'trips', TRIP_ID), { [key]: val }, { merge: true }); };
   const content = () => {
     switch(activeTab) {
       case 'schedule': return <ScheduleView schedule={data.schedule} onSave={(s)=>handleSave('schedule', s)}/>;
@@ -559,12 +359,7 @@ export default function App() {
       );
     }
   };
-
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-safe">
-      <TailwindInjector /> 
-      <Header activeTab={activeTab} setActiveTab={setActiveTab} />
-      <main className="max-w-md mx-auto bg-white min-h-screen shadow-2xl relative">{content()}</main>
-    </div>
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-safe"><TailwindInjector /><Header activeTab={activeTab} setActiveTab={setActiveTab} /><main className="max-w-md mx-auto bg-white min-h-screen shadow-2xl relative">{content()}</main></div>
   );
 }
